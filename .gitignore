@@ -1,0 +1,26 @@
+# Xcode / XcodeGen (project is generated from ios/project.yml)
+ios/*.xcodeproj
+ios/ListingForge/Info.plist
+ios/**/xcuserdata/
+ios/**/*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Node / Next.js (api)
+api/node_modules/
+api/.next/
+api/out/
+api/.vercel/
+api/.env*.local
+
+# Supabase
+api/supabase/.branches/
+api/supabase/.temp/
+
+# Environment
+.env
+.env.local
