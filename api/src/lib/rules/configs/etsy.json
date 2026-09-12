@@ -1,0 +1,21 @@
+{
+  "id": "etsy",
+  "version": "2026-09-draft",
+  "displayName": "Etsy",
+  "tier": "pro",
+  "summary": "Lifestyle-first · 13 tags · SEO title",
+  "images": {
+    "main": {
+      "forbid": [],
+      "TODO_VERIFY": true,
+      "source": "Etsy allows lifestyle main images. Aspect ratio and minimum edge UNKNOWN."
+    },
+    "secondary": {
+      "forbid": [],
+      "TODO_VERIFY": true,
+      "source": "Etsy secondary image rules unknown"
+    }
+  },
+  "TODO_VERIFY": true,
+  "source": "Etsy needs a TAGS rule (design says 13 tags) — not modelled, SPEC §7 config shape has no tags field. Title/description limits also unknown."
+}

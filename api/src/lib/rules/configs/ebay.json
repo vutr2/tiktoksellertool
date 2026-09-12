@@ -1,0 +1,21 @@
+{
+  "id": "ebay",
+  "version": "2026-09-draft",
+  "displayName": "eBay",
+  "tier": "pro",
+  "summary": "No borders · no watermark",
+  "images": {
+    "main": {
+      "forbid": ["border", "watermark", "text"],
+      "TODO_VERIFY": true,
+      "source": "eBay picture requirements. Aspect ratio and minimum edge UNKNOWN."
+    },
+    "secondary": {
+      "forbid": ["border", "watermark"],
+      "TODO_VERIFY": true,
+      "source": "eBay secondary image rules unknown"
+    }
+  },
+  "TODO_VERIFY": true,
+  "source": "Title and description limits NOT modelled — no source available."
+}

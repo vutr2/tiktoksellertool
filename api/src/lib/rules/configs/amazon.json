@@ -1,0 +1,44 @@
+{
+  "id": "amazon",
+  "version": "2026-09-draft",
+  "displayName": "Amazon",
+  "tier": "pro",
+  "summary": "Pure white main · no text · 1600px",
+  "images": {
+    "main": {
+      "aspectRatio": "1:1",
+      "minLongestEdge": 1600,
+      "background": {
+        "mustBePureWhite": true,
+        "rgb": [255, 255, 255],
+        "tolerance": 2,
+        "TODO_VERIFY": true,
+        "source": "Amazon product image requirements — confirm exact tolerance"
+      },
+      "productFillRatio": { "min": 0.85 },
+      "forbid": ["text", "logo", "watermark", "border", "human"],
+      "TODO_VERIFY": true,
+      "source": "Amazon Seller Central image standards"
+    },
+    "secondary": {
+      "aspectRatio": "1:1",
+      "minLongestEdge": 1600,
+      "forbid": ["watermark"],
+      "TODO_VERIFY": true,
+      "source": "Amazon secondary image rules are looser — confirm what is allowed"
+    }
+  },
+  "title": {
+    "maxChars": 200,
+    "forbid": ["allCaps", "promoLanguage"],
+    "TODO_VERIFY": true,
+    "source": "Varies by category on Amazon — confirm per-category caps"
+  },
+  "description": {
+    "format": "bullets",
+    "maxBullets": 5,
+    "maxCharsPerBullet": 500,
+    "TODO_VERIFY": true,
+    "source": "Amazon bullet point limits"
+  }
+}

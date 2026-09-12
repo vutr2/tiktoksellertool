@@ -1,0 +1,22 @@
+{
+  "id": "tiktok_shop",
+  "version": "2026-09-draft",
+  "displayName": "TikTok Shop",
+  "tier": "included",
+  "summary": "1:1 · video cover · overlay text OK",
+  "images": {
+    "main": {
+      "aspectRatio": "1:1",
+      "forbid": [],
+      "TODO_VERIFY": true,
+      "source": "TikTok Shop image spec. Overlay text is allowed — confirm. Minimum resolution UNKNOWN, not guessed."
+    },
+    "secondary": {
+      "forbid": [],
+      "TODO_VERIFY": true,
+      "source": "TikTok Shop secondary image rules unknown"
+    }
+  },
+  "TODO_VERIFY": true,
+  "source": "Title and description limits NOT modelled — no source available. Must be supplied before launch."
+}

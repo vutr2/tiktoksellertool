@@ -122,8 +122,8 @@ struct AuthView: View {
                 )
             }
         case let .failure(error):
-            if (error as? ASAuthorizationError)?.code == .canceled { return }
-            auth.errorMessage = error.localizedDescription
+            // nil for a user-cancelled sheet, which also clears any stale error.
+            auth.errorMessage = AppleSignInError.message(for: error)
         }
     }
 }
