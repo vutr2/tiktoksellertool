@@ -24,3 +24,7 @@ api/supabase/.temp/
 # Environment
 .env
 .env.local
+
+# xcode-build-server (absolute paths, per-machine)
+buildServer.json
+sim.png
