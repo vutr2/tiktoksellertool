@@ -10,12 +10,16 @@ options:
 # Next.js backend (../api) surfaced in the Xcode navigator for browsing only.
 # These are NOT part of any build target — the backend builds with npm/next.
 # Only source/config paths are referenced so node_modules and .next stay out.
+# NOTE: ../api/.env.example is deliberately NOT listed. xcodegen hard-fails on a
+# missing fileGroup path, and that file has been deleted three times (renamed to
+# .env instead of copied), each time breaking every `make build/test/run`. The
+# file still lives in the repo for developers; the Xcode project just no longer
+# depends on it existing.
 fileGroups:
   - ../api/src
   - ../api/supabase
   - ../api/package.json
   - ../api/README.md
-  - ../api/.env.example
 
 settings:
   base:

@@ -13,10 +13,13 @@ import Observation
 final class AppEnvironment {
     let api: APIClient
     let auth: AuthStore
+    /// Marketplace rules served by the API and cached for the session (SPEC §7).
+    let rules: RulesStore
 
     init() {
         let api = APIClient(baseURL: AppConfig.apiBaseURL)
         self.api = api
         self.auth = AuthStore(api: api)
+        self.rules = RulesStore(api: api)
     }
 }

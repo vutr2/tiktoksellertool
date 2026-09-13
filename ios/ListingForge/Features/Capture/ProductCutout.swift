@@ -95,6 +95,7 @@ enum CutoutError: LocalizedError {
     case segmentationFailed(Error)
     case maskUnreadable
     case encodingFailed
+    case invalidPhoto
 
     var errorDescription: String? {
         switch self {
@@ -102,6 +103,8 @@ enum CutoutError: LocalizedError {
             return "We couldn’t process this photo. Try taking it again."
         case .maskUnreadable, .encodingFailed:
             return "Something went wrong preparing the cutout. Try taking the photo again."
+        case .invalidPhoto:
+            return "This photo could not be opened. Choose another image or take a new photo."
         }
     }
 }
@@ -109,6 +112,29 @@ enum CutoutError: LocalizedError {
 // MARK: - Vision
 
 enum ProductSegmenter {
+
+    /// Both camera HEIF and library imports use the same upright, square frame.
+    static func cutout(from data: Data) throws -> ProductCutout {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0 else { throw CutoutError.invalidPhoto }
+
+        // Apply EXIF orientation before cropping so portrait photos stay upright.
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height)
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            throw CutoutError.invalidPhoto
+        }
+        let side = min(image.width, image.height)
+        let crop = CGRect(x: (image.width - side) / 2, y: (image.height - side) / 2, width: side, height: side)
+        guard let square = image.cropping(to: crop) else { throw CutoutError.invalidPhoto }
+        return try cutout(from: square)
+    }
 
     /// Lifts the product off its background entirely on device.
     static func cutout(from image: CGImage) throws -> ProductCutout {

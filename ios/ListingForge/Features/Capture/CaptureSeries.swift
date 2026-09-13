@@ -25,7 +25,7 @@ final class CaptureSeries {
     }
 
     /// Three angles: main plus two supporting shots (Figma, screen 1).
-    static let defaultShotCount = 3
+    nonisolated static let defaultShotCount = 3
 
     let maximumShots: Int
     private(set) var shotsTaken = 0
@@ -72,6 +72,12 @@ final class CaptureSeries {
 
     func lockExposure() {
         exposureLock = .locked
+    }
+
+    /// A failed cutout must leave room to retry the same angle.
+    func discardLastShot() {
+        shotsTaken = max(0, shotsTaken - 1)
+        if shotsTaken == 0 { exposureLock = .unlocked }
     }
 
     /// Starts a new product. The lock must drop too — a fresh SKU is a fresh
