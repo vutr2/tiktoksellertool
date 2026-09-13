@@ -53,9 +53,20 @@ struct AppStoreComplianceTests {
         let collected = try #require(manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
 
         let types = collected.compactMap { $0["NSPrivacyCollectedDataType"] as? String }
-        // Sign-in collects both; SPEC §5.4 wants the inventory kept accurate.
+        // SPEC §5.4 wants the inventory kept accurate. This test previously
+        // checked only the sign-in types, so the manifest could fall behind the
+        // app without anything failing — which is exactly what happened when
+        // photo upload shipped.
         #expect(types.contains("NSPrivacyCollectedDataTypeEmailAddress"))
         #expect(types.contains("NSPrivacyCollectedDataTypeUserID"))
+        #expect(
+            types.contains("NSPrivacyCollectedDataTypePhotosorVideos"),
+            "The app uploads product photos — the manifest must declare them."
+        )
+        #expect(
+            types.contains("NSPrivacyCollectedDataTypeOtherUserContent"),
+            "Product name, category and features are sent to a model provider."
+        )
 
         for entry in collected {
             let name = entry["NSPrivacyCollectedDataType"] as? String ?? "unknown"

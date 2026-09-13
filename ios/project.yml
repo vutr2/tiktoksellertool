@@ -27,8 +27,15 @@ settings:
     DEVELOPMENT_TEAM: "79AX4DYW78"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    # Overridable per environment; injected into Info.plist as API_BASE_URL.
-    API_BASE_URL: "http://localhost:3000"
+    # Injected into Info.plist as API_BASE_URL.
+  configs:
+    Debug:
+      API_BASE_URL: "http://localhost:3000"
+    # Deliberately empty: the production endpoint is not invented here. The
+    # Release build fails until a real HTTPS endpoint is supplied, so a
+    # loopback URL can never reach App Review (Guideline 2.1).
+    Release:
+      API_BASE_URL: ""
 
 targets:
   ListingForge:
@@ -47,6 +54,25 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    preBuildScripts:
+      - name: Guard the Release API endpoint
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "$CONFIGURATION" != "Release" ]; then exit 0; fi
+          case "$API_BASE_URL" in
+            "")
+              echo "error: API_BASE_URL is empty. Set a production HTTPS endpoint before building Release."
+              exit 1 ;;
+            https://*) ;;
+            *)
+              echo "error: API_BASE_URL must use HTTPS in Release (got '$API_BASE_URL')."
+              exit 1 ;;
+          esac
+          case "$API_BASE_URL" in
+            *localhost*|*127.0.0.1*|*'[::1]'*|*0.0.0.0*)
+              echo "error: API_BASE_URL points at loopback ('$API_BASE_URL'). On a reviewer's iPhone that is the phone itself."
+              exit 1 ;;
+          esac
     info:
       path: ListingForge/Info.plist
       properties:

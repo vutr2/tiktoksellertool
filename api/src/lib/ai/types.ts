@@ -16,8 +16,15 @@ export interface ModelUsage {
   outputTokens: number;
   /** Served from the prompt cache — billed at a fraction of the input rate. */
   cachedInputTokens: number;
-  /** Computed from the real token counts, never estimated up front. */
-  costUSD: number;
+  /**
+   * Computed from the real token counts, never estimated up front.
+   *
+   * Null means the model's rate is unknown — it must stay null all the way to
+   * `generations.actual_cost_usd`, which is nullable for exactly this reason.
+   * Collapsing it to 0 would read as a free call and corrupt the margin
+   * numbers SPEC §9 exists to protect.
+   */
+  costUSD: number | null;
   latencyMs: number;
   /** `langfuse_trace_id`. Null only when tracing itself failed. */
   traceId: string | null;
@@ -68,6 +75,31 @@ export interface AdScript {
   hook: string;
   beats: string[];
   durationSeconds: number;
+}
+
+/** A marketplace listing: the title and description for one marketplace. */
+export interface ListingCopy {
+  title: string;
+  /** Bullet marketplaces populate this; paragraph ones use `description`. */
+  bullets: string[];
+  description?: string;
+}
+
+export interface ListingCopyProvider {
+  writeListing(input: {
+    facts: ProductFacts;
+    marketplaceName: string;
+    /** The marketplace's own limits, so the model aims inside them rather than
+     *  being corrected afterwards. */
+    constraints: {
+      titleMaxChars?: number;
+      bulletFormat: boolean;
+      maxBullets?: number;
+      maxCharsPerBullet?: number;
+      forbidPromoLanguage: boolean;
+      forbidAllCaps: boolean;
+    };
+  }): Promise<ModelResult<ListingCopy>>;
 }
 
 export interface ScriptProvider {
@@ -122,15 +154,24 @@ export interface BackgroundProvider {
  * dispatching a generation, charge on success only."
  */
 export class ProviderError extends Error {
+  // Written out rather than declared as constructor parameter properties:
+  // Node's type-stripping test runner rejects that syntax, and these types are
+  // shared with the tests.
+  readonly provider: ModelUsage["provider"];
+  readonly retryable: boolean;
+  readonly reason: unknown;
+  readonly charged = false;
+
   constructor(
-    readonly provider: ModelUsage["provider"],
+    provider: ModelUsage["provider"],
     message: string,
-    readonly retryable: boolean,
-    readonly cause?: unknown,
+    retryable: boolean,
+    reason?: unknown,
   ) {
     super(message);
     this.name = "ProviderError";
+    this.provider = provider;
+    this.retryable = retryable;
+    this.reason = reason;
   }
-
-  readonly charged = false;
 }

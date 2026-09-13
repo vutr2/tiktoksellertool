@@ -5,7 +5,7 @@ import { anthropic, kling, langfuse, missingCredentials } from "../../src/lib/en
 const KEYS = [
   "ANTHROPIC_API_KEY", "ANTHROPIC_VISION_MODEL", "ANTHROPIC_SCRIPT_MODEL",
   "KLING_API_KEY", "KLING_BASE_URL",
-  "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST",
+  "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL",
 ];
 
 beforeEach(() => {
@@ -69,6 +69,6 @@ test("missingCredentials reports every gap at once, not just the first", () => {
 test("models that have defaults are never reported as missing", () => {
   for (const name of missingCredentials()) {
     assert.ok(!name.endsWith("_MODEL"), `${name} has a default and should not be required`);
-    assert.ok(!name.endsWith("_HOST"), `${name} has a default and should not be required`);
+    assert.ok(!name.endsWith("_BASE_URL"), `${name} has a default and should not be required`);
   }
 });

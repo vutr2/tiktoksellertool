@@ -15,11 +15,55 @@ final class AppEnvironment {
     let auth: AuthStore
     /// Marketplace rules served by the API and cached for the session (SPEC §7).
     let rules: RulesStore
+    /// Server-owned products. SwiftData only mirrors these (SPEC §9).
+    private(set) var products: ProductStore
+    /// Marketplace selection and generation (design steps 3 and 4).
+    private(set) var generation: GenerationStore
+    let aiConsent = AIConsent()
+    private(set) var accountCache: AccountCache?
+    private(set) var cacheError: String?
 
     init() {
         let api = APIClient(baseURL: AppConfig.apiBaseURL)
         self.api = api
         self.auth = AuthStore(api: api)
         self.rules = RulesStore(api: api)
+        self.products = ProductStore(api: api)
+        self.generation = GenerationStore(api: api)
+        auth.onSessionChanged = { [weak self] user in self?.useAccount(user) }
+        auth.onAccountDeleted = { [weak self] in
+            guard let self else { return }
+            self.products.invalidate()
+            self.generation.invalidate()
+            self.aiConsent.revoke()
+            try self.accountCache?.erase()
+            try AccountCache.removeLegacyUnownedCache()
+        }
+    }
+
+    func retryAccountCache() {
+        if case let .signedIn(user) = auth.state { useAccount(user) }
+    }
+
+    private func useAccount(_ user: UserDTO?) {
+        guard user?.id != accountCache?.userID || cacheError != nil else { return }
+        products.invalidate()
+        generation.invalidate()
+        accountCache = nil
+        cacheError = nil
+        aiConsent.useAccount(user?.id)
+        products = ProductStore(api: api)
+        generation = GenerationStore(api: api)
+        guard let user else { return }
+        do {
+            try AccountCache.removeLegacyUnownedCache()
+            let cache = try AccountCache(userID: user.id)
+            let directory = cache.directory.appendingPathComponent("listings", isDirectory: true)
+            products = ProductStore(api: api, cacheDirectory: directory)
+            generation = GenerationStore(api: api, cacheDirectory: directory)
+            accountCache = cache
+        } catch {
+            cacheError = "Your local product cache could not be opened. Try again or sign out."
+        }
     }
 }

@@ -41,11 +41,21 @@ export const kling = {
   baseURL: () => optional("KLING_BASE_URL", "https://api.klingai.com").replace(/\/+$/, ""),
 };
 
-/** Langfuse — SPEC §3 requires tracing on *all* model calls. */
+/**
+ * Langfuse — SPEC §3 requires tracing on *all* model calls.
+ *
+ * The variable is `LANGFUSE_BASE_URL`, which is what the v5 SDK reads. An
+ * earlier `LANGFUSE_HOST` here would have been ignored by the SDK, which would
+ * then have silently shipped traces to the default cloud host instead of a
+ * self-hosted one.
+ */
 export const langfuse = {
   publicKey: () => required("LANGFUSE_PUBLIC_KEY"),
   secretKey: () => required("LANGFUSE_SECRET_KEY"),
-  host: () => optional("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+  baseURL: () => optional("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
+  /** Tracing is optional in dev; without keys the model call still runs. */
+  isConfigured: () =>
+    Boolean(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY),
 };
 
 /** Variables with no default — absent means that feature cannot run. */

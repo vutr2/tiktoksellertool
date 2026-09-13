@@ -31,6 +31,52 @@ final class EmailSignInUITests: XCTestCase {
         return reachable
     }
 
+    /// Taps and waits until the field actually holds keyboard focus.
+    ///
+    /// `hasKeyboardFocus` is read by key so the check works whether or not the
+    /// software keyboard is showing — with a hardware keyboard attached
+    /// (simulator ⌘K) it never appears, and waiting on `app.keyboards` alone
+    /// would hang.
+    @MainActor
+    private func focus(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        element.tap()
+        let deadline = Date().addingTimeInterval(timeout)
+        var retried = false
+
+        while Date() < deadline {
+            if (element.value(forKey: "hasKeyboardFocus") as? Bool) == true { return true }
+            if element.hasFocus { return true }
+            if !retried, Date() > deadline.addingTimeInterval(-timeout / 2) {
+                element.tap()
+                retried = true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    /// Waits until the field reports the text that was typed into it.
+    @MainActor
+    private func wait(for element: XCUIElement, toHaveValueContaining text: String,
+                      timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if (element.value as? String)?.contains(text) == true { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
+    @MainActor
+    private func wait(forEnabled element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.isEnabled { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
+    }
+
     @MainActor
     func testEmailSignInReachesTheAPI() throws {
         try XCTSkipUnless(backendIsReachable(), "Backend not running — start it with `make api`.")
@@ -41,11 +87,21 @@ final class EmailSignInUITests: XCTestCase {
         let email = app.textFields["Email"]
         XCTAssertTrue(email.waitForExistence(timeout: 10), "Auth screen did not appear")
 
-        email.tap()
+        // A tap is asynchronous. Typing before focus lands throws "Neither
+        // element nor any descendant has keyboard focus" — the exact failure
+        // that made this test flaky. Wait for focus, and retry the tap once,
+        // before typing.
+        XCTAssertTrue(focus(email), "The email field never took keyboard focus.")
         email.typeText("uitest@example.com")
+        XCTAssertTrue(
+            wait(for: email, toHaveValueContaining: "uitest@example.com"),
+            "Typing did not reach the field; it still reads \(email.value ?? "nil")."
+        )
 
+        // SwiftUI re-renders a frame or two after the binding changes, so the
+        // button's enabled state is waited for rather than read immediately.
         let submit = app.buttons["Continue with email"]
-        XCTAssertTrue(submit.isEnabled, "Button should enable once the address contains @")
+        XCTAssertTrue(wait(forEnabled: submit), "Button never enabled for a valid address.")
         submit.tap()
 
         // The code field only appears after the API returns 200: reaching it
