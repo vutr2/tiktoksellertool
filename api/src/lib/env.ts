@@ -19,8 +19,14 @@ export const anthropic = {
   apiKey: () => required("ANTHROPIC_API_KEY"),
   /** Reads the product photo to draft listing copy. */
   visionModel: () => optional("ANTHROPIC_VISION_MODEL", "claude-opus-5"),
-  /** Writes the short-form ad scripts (SPEC §2). */
-  scriptModel: () => optional("ANTHROPIC_SCRIPT_MODEL", "claude-opus-5"),
+  /**
+   * Writes the short-form ad scripts (SPEC §2).
+   *
+   * Sonnet 5 rather than Opus: SPEC §6 prices an ad script at 2 credits
+   * (~$0.04 of underlying cost), and Opus 5 output alone exceeds that. Sonnet
+   * lands near $0.023 for the same call. Owner's decision, 2026-09-13.
+   */
+  scriptModel: () => optional("ANTHROPIC_SCRIPT_MODEL", "claude-sonnet-5"),
 };
 
 /**

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest — required by Apple since 1 May 2024.
+
+  This declares what the app ACTUALLY collects today. It is a statement about
+  the business, not a formality: over-declaring invites questions at review,
+  under-declaring is a rejection and a trust problem.
+
+  TODO(M3): product photos start being collected when Capture ships. Add
+  NSPrivacyCollectedDataTypePhotosorVideos then — SPEC §5.4: "Product photos
+  are user content — declare them." AppStoreComplianceTests enforces this.
+-->
+<plist version="1.0">
+<dict>
+    <!-- No tracking, no ATT prompt, no data shared with data brokers. -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <dict>
+            <!-- Collected at sign-in. Apple private relay addresses included. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- Server-issued account id held in the session token. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeUserID</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+    </array>
+
+    <!--
+      Required-reason APIs. Empty because the app calls none of them: the
+      Keychain is not on Apple's list, and SwiftData is a first-party framework
+      that carries its own manifest. Re-audit whenever a dependency is added.
+    -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array/>
+</dict>
+</plist>
