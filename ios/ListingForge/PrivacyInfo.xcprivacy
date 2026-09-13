@@ -7,9 +7,12 @@
   the business, not a formality: over-declaring invites questions at review,
   under-declaring is a rejection and a trust problem.
 
-  TODO(M3): product photos start being collected when Capture ships. Add
-  NSPrivacyCollectedDataTypePhotosorVideos then — SPEC §5.4: "Product photos
-  are user content — declare them." AppStoreComplianceTests enforces this.
+  Product photos are collected as of M3: ProductDetailsView uploads the cutout
+  to POST /api/products, and the server sends it to Anthropic for description
+  (SPEC §5.4: "Product photos are user content — declare them").
+
+  This file is not a substitute for the App Privacy answers in App Store
+  Connect; the two must say the same thing.
 -->
 <plist version="1.0">
 <dict>
@@ -25,6 +28,34 @@
             <!-- Collected at sign-in. Apple private relay addresses included. -->
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- The product photo the seller captures or imports. Uploaded as a
+                 cutout and sent to Anthropic to draft the listing copy. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- Product name, category and key features the seller types, sent
+                 to Anthropic as part of the generation prompt. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
             <key>NSPrivacyCollectedDataTypeLinked</key>
             <true/>
             <key>NSPrivacyCollectedDataTypeTracking</key>

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   } catch {
     return error("Invalid request body.");
   }
-  if (!body.identityToken) return error("Missing identity token.");
+  if (typeof body.identityToken !== "string" || !body.identityToken) return error("Missing identity token.");
 
   let identity;
   try {
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   try {
     const { user, orgId } = await upsertUserWithOrg({
       appleUserId: identity.appleUserId,
-      email: identity.email ?? body.email ?? null,
-      fullName: body.fullName ?? null,
+      email: identity.email,
+      fullName: typeof body.fullName === "string" ? body.fullName.trim().slice(0, 200) || null : null,
     });
     const token = await signSession({ userId: user.id, orgId });
     return json({ token, user: { id: user.id, email: user.email } });

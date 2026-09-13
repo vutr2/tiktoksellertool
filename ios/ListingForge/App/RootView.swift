@@ -17,8 +17,21 @@ struct RootView: View {
                 .task { appEnvironment.auth.restore() }
         case .signedOut:
             AuthView()
-        case .signedIn:
-            MainTabView()
+        case let .signedIn(user):
+            if let cache = appEnvironment.accountCache, cache.userID == user.id {
+                MainTabView()
+                    .modelContainer(cache.container)
+                    .id(user.id)
+            } else {
+                ContentUnavailableView {
+                    Label("Couldn’t open your products", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text(appEnvironment.cacheError ?? "Preparing your account…")
+                } actions: {
+                    Button("Try again") { appEnvironment.retryAccountCache() }
+                    Button("Sign out") { appEnvironment.auth.signOut() }
+                }
+            }
         }
     }
 }

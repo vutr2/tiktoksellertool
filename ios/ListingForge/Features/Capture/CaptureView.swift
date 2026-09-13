@@ -28,6 +28,9 @@ struct CaptureView: View {
     @State private var cutouts: [ProductCutout] = []
     @State private var latestCutout: ProductCutout?
     @State private var showingCutout = false
+    @State private var showingDetails = false
+    /// The listing just generated, shown in Review (design step 4).
+    @State private var generatedListing: GenerateResultDTO?
 
     private var rules: RulesStore { appEnvironment.rules }
     private var hasRoomForPhoto: Bool { cutouts.count < CaptureSeries.defaultShotCount }
@@ -57,6 +60,7 @@ struct CaptureView: View {
                 Spacer(minLength: 20)
                 controls
                 statusCaption
+                continueToDetails
             }
             .padding(.vertical, 12)
         }
@@ -74,6 +78,33 @@ struct CaptureView: View {
             if let photo { importPhoto(photo) }
         }
         .sheet(isPresented: $showingCutout) { cutoutReview }
+        .sheet(item: $generatedListing) { listing in
+            ReviewView(
+                productName: listing.facts.suggestedName,
+                assets: listing.assets.map(ReviewAsset.init),
+                failures: listing.failures
+            )
+        }
+        .sheet(isPresented: $showingDetails) {
+            ProductDetailsView(
+                cutouts: cutouts,
+                onCreated: { _ in
+                    // The product now exists on the server, so the in-memory
+                    // series is finished with. Clearing it also drops the
+                    // hardware exposure lock for the next product.
+                    cutouts.removeAll()
+                    // resetSeries() also releases the hardware exposure and
+                    // white-balance lock; series.reset() only clears the state
+                    // machine, leaving the next product metered for the last one.
+                    camera.resetSeries()
+                },
+                onGenerated: { result in
+                    // Discarding this was the gap Codex flagged: credits are
+                    // charged, so the seller must be handed the listing.
+                    generatedListing = result
+                }
+            )
+        }
         .alert("Couldn’t prepare that photo", isPresented: Binding(
             get: { captureError != nil },
             set: { if !$0 { captureError = nil } }
@@ -81,6 +112,26 @@ struct CaptureView: View {
             Button("OK") { captureError = nil }
         } message: {
             Text(captureError ?? "")
+        }
+    }
+
+    /// Only appears once there is something to name. Until the server has the
+    /// product, these cutouts live in memory alone — the wording says so.
+    @ViewBuilder private var continueToDetails: some View {
+        if !cutouts.isEmpty {
+            Button {
+                showingDetails = true
+            } label: {
+                Text("Continue with \(cutouts.count) photo\(cutouts.count == 1 ? "" : "s")")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(.white)
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 16)
         }
     }
 
