@@ -27,9 +27,12 @@ settings:
     DEVELOPMENT_TEAM: "79AX4DYW78"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
+<<<<<<< HEAD
     PRIVACY_POLICY_URL: ""
     SUPPORT_URL: ""
     TERMS_URL: ""
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     # Injected into Info.plist as API_BASE_URL.
   configs:
     Debug:
@@ -67,10 +70,31 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     preBuildScripts:
+<<<<<<< HEAD
       - name: Validate submission configuration
         basedOnDependencyAnalysis: false
         script: |
           /usr/bin/python3 "$SRCROOT/scripts/validate_release.py"
+=======
+      - name: Guard the Release API endpoint
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ "$CONFIGURATION" != "Release" ]; then exit 0; fi
+          case "$API_BASE_URL" in
+            "")
+              echo "error: API_BASE_URL is empty. Set a production HTTPS endpoint before building Release."
+              exit 1 ;;
+            https://*) ;;
+            *)
+              echo "error: API_BASE_URL must use HTTPS in Release (got '$API_BASE_URL')."
+              exit 1 ;;
+          esac
+          case "$API_BASE_URL" in
+            *localhost*|*127.0.0.1*|*'[::1]'*|*0.0.0.0*)
+              echo "error: API_BASE_URL points at loopback ('$API_BASE_URL'). On a reviewer's iPhone that is the phone itself."
+              exit 1 ;;
+          esac
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     info:
       path: ListingForge/Info.plist
       properties:

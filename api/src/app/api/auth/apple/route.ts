@@ -17,7 +17,10 @@ export async function POST(request: Request) {
   } catch {
     return error("Invalid request body.");
   }
+<<<<<<< HEAD
   if (!body || typeof body !== "object" || Array.isArray(body)) return error("Invalid request body.");
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
   if (typeof body.identityToken !== "string" || !body.identityToken) return error("Missing identity token.");
 
   let identity;

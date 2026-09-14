@@ -98,6 +98,7 @@ struct ReviewTests {
         #expect(listing == nil)
         #expect(store.errorMessage == "That product could not be found.")
     }
+<<<<<<< HEAD
 
     @Test("A failed rule cannot be rendered as a green pass")
     func failedViolationOverridesPassBadge() {
@@ -151,4 +152,6 @@ struct ReviewTests {
         let store = GenerationStore(api: server.client, cacheDirectory: directory)
         #expect(await store.loadAssets(productID: "p1", token: "jwt") == nil)
     }
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }

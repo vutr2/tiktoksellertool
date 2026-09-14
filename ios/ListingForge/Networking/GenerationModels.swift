@@ -5,7 +5,10 @@
 //  Mirrors api/src/lib/generate.ts and the rules engine's Violation shape.
 //
 
+<<<<<<< HEAD
 import CryptoKit
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 import Foundation
 
 /// One rule a generated asset broke. `message` is plain English and is shown
@@ -17,7 +20,11 @@ struct ViolationDTO: Codable, Hashable, Identifiable {
     let message: String
     let detail: String?
 
+<<<<<<< HEAD
     var id: String { StableAssetIdentity.make([code, field, severity, message, detail ?? ""]) }
+=======
+    var id: String { code + field }
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     var isFailure: Bool { severity == "fail" }
 }
 
@@ -27,13 +34,17 @@ enum ComplianceStatus: String, Codable {
 }
 
 struct GeneratedAssetDTO: Codable, Hashable, Identifiable {
+<<<<<<< HEAD
     let serverID: String?
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     let type: String
     let marketplace: String
     let content: String
     let status: ComplianceStatus
     let violations: [ViolationDTO]
 
+<<<<<<< HEAD
     var id: String { serverID ?? StableAssetIdentity.make([marketplace, type, content]) }
 
     enum CodingKeys: String, CodingKey {
@@ -50,6 +61,9 @@ struct GeneratedAssetDTO: Codable, Hashable, Identifiable {
         self.status = status
         self.violations = violations
     }
+=======
+    var id: String { marketplace + type + content.prefix(24) }
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }
 
 struct ProductFactsDTO: Codable, Hashable {
@@ -69,7 +83,10 @@ struct GenerationFailureDTO: Codable, Hashable {
 struct GenerateRequest: Encodable {
     let marketplaces: [String]
     let scriptCount: Int
+<<<<<<< HEAD
     var requestId: UUID = UUID()
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }
 
 struct GenerateResultDTO: Codable, Identifiable {
@@ -116,6 +133,7 @@ struct ListingProductDTO: Codable, Hashable {
     let category: String?
 }
 
+<<<<<<< HEAD
 struct ListingAssetsDTO: Codable {
     let product: ListingProductDTO
     let assets: [StoredAssetDTO]
@@ -157,4 +175,9 @@ enum StableAssetIdentity {
         let data = (try? JSONEncoder().encode(components)) ?? Data()
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+=======
+struct ListingAssetsDTO: Decodable {
+    let product: ListingProductDTO
+    let assets: [StoredAssetDTO]
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }

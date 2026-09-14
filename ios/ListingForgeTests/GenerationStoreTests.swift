@@ -202,6 +202,7 @@ struct GenerationStoreTests {
         #expect(store.balance == nil)
         #expect(store.errorMessage == nil)
     }
+<<<<<<< HEAD
     @Test("A lost generation response recovers the committed result without a second charge")
     func recoverCommittedGeneration() async throws {
         let server = StubbedServer(.transportFailure(URLError(.networkConnectionLost)), .json(generated))
@@ -234,4 +235,6 @@ struct GenerationStoreTests {
         #expect(relaunched.pendingRequest(productID: "p1") == nil)
     }
 
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }

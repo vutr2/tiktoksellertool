@@ -1,12 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+<<<<<<< HEAD
 import { deflateSync } from "node:zlib";
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 import {
   MAX_CUTOUT_BYTES,
   cutoutPath,
   validateCreateProduct,
 } from "../src/lib/products.ts";
 
+<<<<<<< HEAD
 /**
  * A real 2x2 RGBA PNG — signature, IHDR, IDAT and IEND with correct CRCs.
  *
@@ -45,6 +49,13 @@ function makePng(): Buffer {
 }
 
 const pngBytes = makePng();
+=======
+/** Minimal valid PNG: signature plus a byte of payload. */
+const pngBytes = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.from([0x00]),
+]);
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 const pngBase64 = pngBytes.toString("base64");
 
 const ok = (input: Parameters<typeof validateCreateProduct>[0]) => {

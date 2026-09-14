@@ -1,5 +1,8 @@
 import { verifySession } from "@/lib/session";
+<<<<<<< HEAD
 import { billingStatus } from "@/lib/billing";
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 import { balanceOf } from "@/lib/credits";
 import { json, error } from "@/lib/http";
 
@@ -13,7 +16,10 @@ export async function GET(request: Request) {
   }
 
   try {
+<<<<<<< HEAD
     await billingStatus(claims.orgId, claims.userId);
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     const report = await balanceOf(claims.orgId);
     return json({
       balance: report.balance,

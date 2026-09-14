@@ -10,7 +10,10 @@
 
 import Foundation
 import Observation
+<<<<<<< HEAD
 import CryptoKit
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
 @MainActor
 @Observable
@@ -19,6 +22,7 @@ final class ProductStore {
     private(set) var products: [ProductDTO] = []
     private(set) var isSaving = false
     private(set) var isLoading = false
+<<<<<<< HEAD
     private(set) var isOffline = false
     private(set) var cacheWarning: String?
     var errorMessage: String?
@@ -54,6 +58,14 @@ final class ProductStore {
                                                      options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             cacheWarning = nil
         } catch { cacheWarning = "Your products are saved online, but their offline copy could not be saved." }
+=======
+    var errorMessage: String?
+
+    private let api: APIClient
+
+    init(api: APIClient) {
+        self.api = api
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     /// Sends the product and its cutout. Returns nil when it failed, with
@@ -65,7 +77,10 @@ final class ProductStore {
         cutoutPNG: Data?,
         token: String
     ) async -> ProductDTO? {
+<<<<<<< HEAD
         guard !isInvalidated, !isSaving else { return nil }
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         isSaving = true
         errorMessage = nil
         defer { isSaving = false }
@@ -79,6 +94,7 @@ final class ProductStore {
 
         do {
             let product: ProductDTO = try await api.post("api/products", body: request, token: token)
+<<<<<<< HEAD
             guard !isInvalidated else { return nil }
             // Newest first, matching what the list endpoint returns.
             products.insert(product, at: 0)
@@ -86,12 +102,19 @@ final class ProductStore {
             return product
         } catch {
             guard !isInvalidated else { return nil }
+=======
+            // Newest first, matching what the list endpoint returns.
+            products.insert(product, at: 0)
+            return product
+        } catch {
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return nil
         }
     }
 
     func load(token: String) async {
+<<<<<<< HEAD
         guard !isInvalidated else { return }
         let issued = UUID()
         loadID = issued
@@ -151,6 +174,19 @@ final class ProductStore {
             return nil
         }
     }
+=======
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let response: ProductListResponse = try await api.get("api/products", token: token)
+            products = response.products
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }
 
 // MARK: - Cache mirroring

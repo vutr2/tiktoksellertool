@@ -12,8 +12,12 @@ import {
   AnthropicVisionProvider,
 } from "./ai/anthropic.ts";
 import type { ModelUsage, ProductFacts } from "./ai/types.ts";
+<<<<<<< HEAD
 import { CREDIT_COST, InsufficientCreditsError } from "./credits.ts";
 import { createHash } from "node:crypto";
+=======
+import { CREDIT_COST, assertCanAfford, balanceOf, chargeCredits } from "./credits.ts";
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 import { rulesFor } from "./rules/registry.ts";
 import { statusOf, validate } from "./rules/validate.ts";
 import type { MarketplaceId, Violation } from "./rules/types.ts";
@@ -24,7 +28,10 @@ import { supabaseAdmin } from "./supabase.ts";
 const CREDITS_PER_MARKETPLACE = CREDIT_COST.titleOrDescription * 2;
 
 export interface GenerateInput {
+<<<<<<< HEAD
   requestId?: string;
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
   productId: string;
   marketplaces: MarketplaceId[];
   /** 0 skips ad scripts entirely. */
@@ -32,7 +39,10 @@ export interface GenerateInput {
 }
 
 export interface GeneratedAsset {
+<<<<<<< HEAD
   id?: string;
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
   type: "title" | "description" | "script";
   marketplace: string;
   content: string;
@@ -72,6 +82,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
   if (productError) throw new Error(productError.message);
   if (!product) throw new Error("That product could not be found.");
 
+<<<<<<< HEAD
   if (!input.requestId) throw new GenerationRequestError("This generation needs a request identifier.", 400);
   if (product.attributes?.captureStatus === "uploading") throw new GenerationRequestError("Finish uploading your photos first.", 409);
   const immutableInput = { marketplaces: input.marketplaces, scriptCount: input.scriptCount };
@@ -93,6 +104,13 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
   const visionUsages: ModelUsage[] = [];
   const facts = await describeProduct(product, visionUsages);
   usages.push(...visionUsages.map(usage => ({ ...usage, creditsCharged: 0 })));
+=======
+  // Before any model runs (SPEC §6).
+  await assertCanAfford(orgId, quoteCredits(input));
+
+  const usages: ModelUsage[] = [];
+  const facts = await describeProduct(product, usages);
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
   const assets: GeneratedAsset[] = [];
   const failures: { marketplace: string; reason: string }[] = [];
@@ -114,8 +132,12 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           forbidAllCaps: rules.title?.forbid?.includes("allCaps") ?? false,
         },
       });
+<<<<<<< HEAD
       const usage = { ...copy.usage, creditsCharged: 0 };
       usages.push(usage);
+=======
+      usages.push(copy.usage);
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
       // The generated copy is judged by the same engine that judges a seller's
       // own text — the model is not trusted to have followed the limits.
@@ -144,7 +166,11 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
       });
 
       // Charged only now that this marketplace produced something.
+<<<<<<< HEAD
       usage.creditsCharged = CREDITS_PER_MARKETPLACE;
+=======
+      await chargeCredits(orgId, CREDITS_PER_MARKETPLACE, "generation.title");
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
       creditsCharged += CREDITS_PER_MARKETPLACE;
     } catch (error) {
       failures.push({
@@ -161,11 +187,17 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         marketplace: rulesFor(input.marketplaces[0]).displayName,
         count: input.scriptCount,
       });
+<<<<<<< HEAD
       const usage = { ...scripts.usage, creditsCharged: 0 };
       usages.push(usage);
 
       const completedScripts = scripts.value.slice(0, input.scriptCount);
       for (const script of completedScripts) {
+=======
+      usages.push(scripts.usage);
+
+      for (const script of scripts.value) {
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         assets.push({
           type: "script",
           marketplace: input.marketplaces[0],
@@ -174,8 +206,13 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           violations: [],
         });
       }
+<<<<<<< HEAD
       const scriptCredits = completedScripts.length * CREDIT_COST.adScript;
       usage.creditsCharged = scriptCredits;
+=======
+      const scriptCredits = scripts.value.length * CREDIT_COST.adScript;
+      await chargeCredits(orgId, scriptCredits, "generation.script");
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
       creditsCharged += scriptCredits;
     } catch (error) {
       failures.push({
@@ -185,6 +222,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
     }
   }
 
+<<<<<<< HEAD
   const response = { productId: product.id as string, facts, assets, failures, creditsCharged, balanceAfter: 0 };
   const { data: settled, error: settlementError } = await db.rpc("complete_generation", {
     p_request_id: input.requestId, p_lease_token: leaseToken, p_assets: assets,
@@ -203,6 +241,20 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
 export class GenerationRequestError extends Error {
   readonly status: number;
   constructor(message: string, status: number) { super(message); this.status = status; }
+=======
+  await persist(orgId, product.id as string, assets, usages);
+
+  const { balance } = await balanceOf(orgId);
+
+  return {
+    productId: product.id as string,
+    facts,
+    assets,
+    failures,
+    creditsCharged,
+    balanceAfter: balance,
+  };
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 }
 
 /** Reads the cutout and asks Claude what the product is. */
@@ -215,8 +267,12 @@ async function describeProduct(
   if (path) {
     const db = supabaseAdmin();
     const { data, error } = await db.storage.from(CUTOUT_BUCKET).download(path);
+<<<<<<< HEAD
     if (error || !data) throw new Error("Your photo could not be loaded. Retry this listing.");
     if (data) {
+=======
+    if (!error && data) {
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
       const vision = await new AnthropicVisionProvider().readProduct({
         bytes: new Uint8Array(await data.arrayBuffer()),
         mediaType: "image/png",
@@ -237,3 +293,46 @@ async function describeProduct(
     visibleText: [],
   };
 }
+<<<<<<< HEAD
+=======
+
+/** Writes the asset rows and one generations row per model call (SPEC §9). */
+async function persist(
+  orgId: string,
+  productId: string,
+  assets: GeneratedAsset[],
+  usages: ModelUsage[],
+): Promise<void> {
+  const db = supabaseAdmin();
+
+  if (assets.length > 0) {
+    const { error } = await db.from("assets").insert(
+      assets.map((asset) => ({
+        product_id: productId,
+        type: asset.type,
+        marketplace: asset.marketplace,
+        content: asset.content,
+        validation_status: asset.status,
+        violations: asset.violations,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  if (usages.length > 0) {
+    // actual_cost_usd stays null when the model's rate is unknown — never 0.
+    const { error } = await db.from("generations").insert(
+      usages.map((usage) => ({
+        org_id: orgId,
+        provider: usage.provider,
+        model: usage.model,
+        credits_charged: 0,
+        actual_cost_usd: usage.costUSD,
+        latency_ms: usage.latencyMs,
+        langfuse_trace_id: usage.traceId,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+}
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196

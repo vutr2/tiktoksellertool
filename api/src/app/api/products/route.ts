@@ -4,8 +4,11 @@ import {
   createProduct,
   ensureCutoutBucket,
   validateCreateProduct,
+<<<<<<< HEAD
   readLimitedBody,
   ProductError,
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 } from "@/lib/products";
 import { json, error } from "@/lib/http";
 
@@ -20,9 +23,14 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
+<<<<<<< HEAD
     body = JSON.parse((await readLimitedBody(request, 4 * 1024 * 1024 + 16384)).toString("utf8"));
   } catch (e) {
     if (e instanceof ProductError) return error(e.message, e.status);
+=======
+    body = await request.json();
+  } catch {
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     return error("Invalid request body.");
   }
 
@@ -34,7 +42,10 @@ export async function POST(request: Request) {
     const product = await createProduct(claims.orgId, validation.value);
     return json(product, 201);
   } catch (e) {
+<<<<<<< HEAD
     if (e instanceof ProductError) return error(e.message, e.status);
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     return error(e instanceof Error ? e.message : "Could not save the product.", 500);
   }
 }
@@ -53,7 +64,10 @@ export async function GET(request: Request) {
     .from("products")
     .select("id, name, category, cutout_url, created_at")
     .eq("org_id", claims.orgId)
+<<<<<<< HEAD
     .or("attributes->>captureStatus.is.null,attributes->>captureStatus.eq.ready")
+=======
+>>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     .order("created_at", { ascending: false })
     .limit(100);
   if (dbError) return error("Could not load your products.", 500);
