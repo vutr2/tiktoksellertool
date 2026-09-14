@@ -220,9 +220,13 @@ the API:
   there. Never grant credits from a client claim — this is how these apps get drained.
 - Implement **App Store Server Notifications V2** to catch renewals, refunds,
   cancellations, and billing retries. Without it, entitlement state silently rots.
-- Credits **expire at the end of each billing month**. Annual plans grant
-  monthly, not 13,200 at once. Non-negotiable — getting this wrong is a real
-  financial loss.
+- **Paid credits never expire** (owner decision, 2026-09-15). Apple Guideline
+  3.1.1 does not allow purchased credits to expire, so both the monthly plan
+  allowance and top-ups keep their value indefinitely. What ends with the
+  subscription is **feature access**, decided from the `subscriptions` table,
+  never from the credit balance. The free trial still expires — it was not
+  purchased. Annual plans still grant monthly, not 13,200 at once; missed months
+  do not accumulate.
 - Top-up credits consumed only after plan credits are exhausted.
 - Check balance **before** dispatching a generation, charge on success only.
   Failed generation refunds automatically.

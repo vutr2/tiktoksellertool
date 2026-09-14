@@ -28,6 +28,7 @@ struct CaptureView: View {
     @State private var cutouts: [ProductCutout] = []
     @State private var latestCutout: ProductCutout?
     @State private var showingCutout = false
+    @State private var showingRefinement = false
     @State private var showingDetails = false
     /// The listing just generated, shown in Review (design step 4).
     @State private var generatedListing: GenerateResultDTO?
@@ -83,6 +84,19 @@ struct CaptureView: View {
             if let photo { importPhoto(photo) }
         }
         .sheet(isPresented: $showingCutout) { cutoutReview }
+        .sheet(isPresented: $showingRefinement) {
+            if let cutout = latestCutout {
+                CutoutRefinementView(original: cutout) { refined in
+                    latestCutout = refined
+                    // A refined cutout is graded again by the same assessment,
+                    // so it only joins the series if it now passes on merit.
+                    if !refined.verdict.needsManualRefinement {
+                        cutouts.append(refined)
+                        appEnvironment.captureDraft.draft.cutouts = cutouts
+                    }
+                }
+            }
+        }
         .sheet(item: $generatedListing) { listing in
             ReviewView(
                 productName: listing.facts.suggestedName,
@@ -420,9 +434,18 @@ struct CaptureView: View {
                         if let message = cutout.verdict.message {
                             Label(message, systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(.orange)
-                            Text("This photo needs refinement. Try another shot with a plain, contrasting background.")
+                            Text("Rub out what’s left of the background, or take another shot against a plainer surface.")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                            // SPEC §4.1 asks for manual refinement here rather
+                            // than only sending the seller back to the camera.
+                            Button {
+                                showingRefinement = true
+                            } label: {
+                                Label("Refine cutout", systemImage: "wand.and.stars")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
                         } else {
                             Label("Background removed", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)

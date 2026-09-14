@@ -38,7 +38,19 @@ iOS: the latest ordinary suite passed 134 tests with 0 failures and 2 explicit s
 
 ## Required before submission
 
-1. Resolve the credit-expiry business rule. SPEC currently expires unused subscription credits monthly. Apple's current [Guideline 3.1.1](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase) says purchased credits may not expire. Owner approval was requested to retain paid credits while subscription feature access expires normally. Migration/tests currently retain the existing SPEC behavior; do not deploy billing before this is resolved.
+1. ~~Resolve the credit-expiry business rule.~~ **Resolved by the owner on
+   2026-09-15: paid credits never expire; only feature access ends with the
+   subscription.** Implemented in `0005_paid_credits_do_not_expire.sql` — plan
+   grants no longer receive an `expires_at`, and existing unexpired plan grants
+   have theirs cleared. Top-ups already had none. The free trial still expires,
+   since Guideline 3.1.1 concerns purchased content. Feature access was already
+   read from the `subscriptions` table rather than the balance, so it needed no
+   change. SPEC §6 updated to match.
+
+   Verified against a disposable PostgreSQL cluster with every migration
+   applied: an annual plan now reaches 1100 credits (Jan 400 + top-up 300 +
+   Mar 400) and stays there, with zero `subscription.expiry` ledger rows.
+   **Migration 0005 has not been applied to the live Supabase project.**
 2. Supply real public HTTPS backend, Privacy Policy, Terms and support URLs. Complete matching App Privacy answers, retention policy and support contact. Release validation deliberately fails while these are absent.
 3. Configure App Store Connect products/group levels, introductory offers and agreements; provide numeric APP_STORE_APP_ID and verified bundle/environment settings. Configure V2 notifications at `/api/billing/notifications`. Same-tier monthly/annual products belong at the same group level; do not advertise bulk workflows that are not implemented.
 4. Validate real Apple Sandbox/TestFlight purchase, interrupted purchase, pending approval, restore after reinstall/account switch, renewal, refund and notifications against a staging database. Local StoreKit signatures are deliberately rejected by the real server. Do not enable Billing Grace Period until its entitlement behavior is implemented and tested; the current backend uses the verified transaction expiration.

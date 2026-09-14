@@ -199,10 +199,15 @@ def main():
                 {"start": "2026-03-01T00:00:00Z", "end": "2026-04-01T00:00:00Z", "amount": 400, "kind": "plan"}]
             assert apply(annual_org, annual, "2026-01-15T00:00:00Z")["balance"] == 400
             assert apply(annual_org, purchase(annual_user, "topup", 300), "2026-01-15T00:00:00Z")["balance"] == 700
-            assert apply(annual_org, annual, "2026-03-15T00:00:00Z")["balance"] == 700
+            # March adds its own 400. February is skipped because a missed month
+            # does not accumulate, and January's 400 stays: since migration 0005
+            # paid credits carry no expiry (Apple Guideline 3.1.1).
+            assert apply(annual_org, annual, "2026-03-15T00:00:00Z")["balance"] == 1100
             assert sql(f"select count(*) from credit_grants where org_id='{annual_org}' and kind='plan'") == "2"
-            assert apply(annual_org, annual, "2026-04-15T00:00:00Z")["balance"] == 300
-            print("PASS: annual grants skip missed months; unused plan credits expire while top-ups remain")
+            # Nothing expires after the schedule ends; the balance simply stops growing.
+            assert apply(annual_org, annual, "2026-04-15T00:00:00Z")["balance"] == 1100
+            assert sql(f"select count(*) from credit_ledger where org_id='{annual_org}' and reason='subscription.expiry'") == "0"
+            print("PASS: annual grants skip missed months; paid credits never expire")
 
             for signature in ["begin_generation(uuid,uuid,uuid,text,jsonb,integer)",
                               "complete_generation(uuid,uuid,jsonb,jsonb,jsonb,integer)",

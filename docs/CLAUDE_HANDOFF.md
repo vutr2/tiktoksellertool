@@ -229,6 +229,83 @@ grant. The StoreKit purchase path remains M5.
 (`AIConsent.swift`) but **not wired to any screen**, `[#7]` Apple token
 revocation, `[#11]` three AVFoundation Sendable warnings.
 
+
+## Claude — manual cutout refinement (2026-09-15)
+
+Closes the last open M3 item: "Add manual cutout refinement… there is no
+refinement editor yet." Until now a low-confidence cutout only told the seller
+to retake the photo, which SPEC §4.1 explicitly asks us not to settle for.
+
+Validation: **159 iOS tests in 23 suites pass**, 91 API tests pass, Debug build
+clean.
+
+### What it does, and what it deliberately does not
+
+- `RefinableMask` — the pixel arithmetic, with no image IO and no SwiftUI, so
+  the logic that decides what gets uploaded is testable without a camera,
+  without Vision and without a screen. 16 tests.
+- `CutoutRefiner` — decode / preview / re-encode, and it **re-runs
+  `CutoutAssessment` on the result**. A refined cutout is graded on merit, not
+  accepted because a human touched it. 8 tests.
+- `CutoutRefinementView` — erase brush with size control, "Harden edges", undo,
+  a transparency checkerboard so erased areas do not read as white product on a
+  white card.
+
+**There is no restore brush.** `ProductCutout` stores only the masked PNG, and
+`CaptureDraftStore` persists it; the pixels Vision removed are gone. A restore
+control would be a button that silently does nothing, so the screen says plainly
+that erased areas cannot be brought back.
+
+### Two defects the tests caught in my own code
+
+1. `CutoutRefiner` used `CGImageAlphaInfo.last` (straight alpha). CoreGraphics
+   has **no 8-bit straight-alpha RGBA context** and rejects it, so every context
+   creation returned nil — the editor would have failed to open at runtime. Now
+   `premultipliedLast`.
+2. That forced a second fix: in a premultiplied buffer, `hardenEdges` raising a
+   pixel's alpha from 128 to 255 without scaling its colour back up leaves a
+   half-lit pixel — a grey rim exactly where the halo was. It now
+   un-premultiplies any pixel it promotes to opaque.
+
+### StoreKit `.notEntitled` — independently reproduced
+
+Confirmed the readiness review's finding on iOS 26.5 Simulator. Also tested one
+hypothesis it did not cover: the StoreKit configuration was attached only to the
+scheme's **Launch** action, not its Test action. Attaching it to the Test action
+made no difference, and XcodeGen 2.46 does not emit `storeKitConfiguration`
+under `test:` anyway, so that dead key was removed from `project.yml`.
+The test already uses `SKTestSession`, which should not need the scheme at all.
+The blocker stands: it needs a different runtime or a real device.
+
+
+## Claude — paid credits no longer expire (2026-09-15)
+
+The owner settled readiness item 1: **keep paid credits, let only feature access
+end with the subscription.**
+
+`api/supabase/migrations/0005_paid_credits_do_not_expire.sql`:
+
+- `reconcile_credit_periods` sets `expires_at` only for `kind='trial'`. Plan
+  grants keep `billing_period_end` — it still schedules the next month's grant —
+  but it no longer ends the credits.
+- Existing unexpired plan grants have `expires_at` cleared. Already-expired
+  grants are left alone: reversing one would mint credits from a rule change
+  rather than a payment, and there is no production data to restore.
+- Top-ups were already unaffected; they never carried an expiry.
+- Feature access needed no change. `billing.ts` derives the tier from the
+  `subscriptions` table (`status='active'` and `expires_at > now`), never from
+  the credit balance — the separation the decision depends on was already there.
+
+SPEC §6's "credits expire at the end of each billing month" is replaced, and
+`test-generation-db.py` updated: the annual case now expects 1100 and asserts
+**zero** `subscription.expiry` rows, where it previously expected 300.
+
+Verified by running the disposable-cluster test with all migrations applied —
+10/10 pass, including "annual grants skip missed months; paid credits never
+expire". 91 API tests, 159 iOS tests, typecheck clean.
+
+**Migration 0005 is not applied to the live Supabase project.**
+
 ## Current slice
 
 - `CaptureView` sends camera HEIF data and PhotosPicker imports through the same on-device Vision pipeline. Image orientation is applied before the centered square crop.
