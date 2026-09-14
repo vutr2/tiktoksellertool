@@ -19,11 +19,8 @@ final class GenerationStore {
     private(set) var balance: Int?
     private(set) var quotedCredits: Int?
     private(set) var isGenerating = false
-<<<<<<< HEAD
     private(set) var isQuoting = false
     private(set) var listingLoadWarning: String?
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     private(set) var result: GenerateResultDTO?
     var errorMessage: String?
     /// Set when the seller cannot afford the work — the app shows the paywall
@@ -31,18 +28,14 @@ final class GenerationStore {
     private(set) var needsMoreCredits = false
 
     private let api: APIClient
-<<<<<<< HEAD
     private let snapshots: ListingSnapshotCache
     private let cacheDirectory: URL?
     private var pendingRequests: [String: PendingGeneration] = [:]
     private var isInvalidated = false
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     /// Incremented per request so a slow response cannot overwrite a newer one.
     private var quoteToken = 0
     private var generateToken = 0
 
-<<<<<<< HEAD
     init(api: APIClient, cacheDirectory: URL? = nil) {
         self.api = api
         self.snapshots = ListingSnapshotCache(directory: cacheDirectory)
@@ -102,17 +95,6 @@ final class GenerationStore {
             balance = report.balance
         } catch {
             guard !isInvalidated else { return }
-=======
-    init(api: APIClient) {
-        self.api = api
-    }
-
-    func loadBalance(token: String) async {
-        do {
-            let report: CreditBalanceDTO = try await api.get("api/credits", token: token)
-            balance = report.balance
-        } catch {
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             // A missing balance must not block the screen; the server refuses
             // an unaffordable request anyway.
             balance = nil
@@ -120,17 +102,12 @@ final class GenerationStore {
     }
 
     func quote(productID: String, marketplaces: [String], scriptCount: Int, token: String) async {
-<<<<<<< HEAD
         guard !isInvalidated else { return }
         quoteToken += 1
         let issued = quoteToken
         quotedCredits = nil
         isQuoting = true
         defer { if issued == quoteToken { isQuoting = false } }
-=======
-        quoteToken += 1
-        let issued = quoteToken
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
         guard !marketplaces.isEmpty else {
             quotedCredits = 0
@@ -142,11 +119,7 @@ final class GenerationStore {
                 "api/products/\(productID)/generate?\(query)", token: token)
             // Changing the selection quickly can land responses out of order;
             // an older quote must not overwrite the current selection's price.
-<<<<<<< HEAD
             guard issued == quoteToken, !Task.isCancelled else { return }
-=======
-            guard issued == quoteToken else { return }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             quotedCredits = quote.credits
         } catch {
             guard issued == quoteToken else { return }
@@ -161,7 +134,6 @@ final class GenerationStore {
     /// successful run and treat a failed request as a success.
     @discardableResult
     func generate(productID: String, marketplaces: [String], scriptCount: Int, token: String) async -> GenerateResultDTO? {
-<<<<<<< HEAD
         guard !isGenerating, !isInvalidated else { return nil }
         let pending = pendingRequest(productID: productID) ?? PendingGeneration(
             requestId: UUID(), productID: productID, marketplaces: marketplaces.sorted(), scriptCount: scriptCount)
@@ -174,9 +146,6 @@ final class GenerationStore {
             errorMessage = "Your request could not be saved on this device. Free some space and try again."
             return nil
         }
-=======
-        guard !isGenerating else { return nil }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         isGenerating = true
         errorMessage = nil
         needsMoreCredits = false
@@ -190,7 +159,6 @@ final class GenerationStore {
         do {
             let generated: GenerateResultDTO = try await api.post(
                 "api/products/\(productID)/generate",
-<<<<<<< HEAD
                 body: GenerateRequest(marketplaces: pending.marketplaces, scriptCount: pending.scriptCount, requestId: pending.requestId),
                 token: token
             )
@@ -210,33 +178,18 @@ final class GenerationStore {
             if status == 409 || status >= 500 {
                 if let recovered = await recover(pending, token: token, issued: issued) { return recovered }
             }
-=======
-                body: GenerateRequest(marketplaces: marketplaces, scriptCount: scriptCount),
-                token: token
-            )
-            guard issued == generateToken else { return nil }
-            result = generated
-            balance = generated.balanceAfter
-            return generated
-        } catch let APIError.http(status, message) {
-            guard issued == generateToken else { return nil }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             // 402 is "buy more credits", not a failure to explain away.
             needsMoreCredits = status == 402
             errorMessage = message ?? "Generation failed."
             return nil
         } catch {
             guard issued == generateToken else { return nil }
-<<<<<<< HEAD
             if let recovered = await recover(pending, token: token, issued: issued) { return recovered }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return nil
         }
     }
 
-<<<<<<< HEAD
     private func recover(_ pending: PendingGeneration, token: String, issued: Int) async -> GenerateResultDTO? {
         guard !isInvalidated, !Task.isCancelled else { return nil }
         do {
@@ -252,13 +205,10 @@ final class GenerationStore {
         } catch { return nil }
     }
 
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     /// Loads a listing that was generated earlier, so it can be reopened after
     /// the app was closed. Credits were charged for this work; it has to still
     /// be reachable (Guideline 2.1).
     func loadAssets(productID: String, token: String) async -> ListingAssetsDTO? {
-<<<<<<< HEAD
         guard !isInvalidated else { return nil }
         errorMessage = nil
         listingLoadWarning = nil
@@ -280,26 +230,16 @@ final class GenerationStore {
                 listingLoadWarning = "Showing your saved offline copy. Connect to refresh this listing."
                 return cached
             }
-=======
-        do {
-            let listing: ListingAssetsDTO = try await api.get(
-                "api/products/\(productID)/assets", token: token)
-            return listing
-        } catch {
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return nil
         }
     }
 
-<<<<<<< HEAD
     func cachedListing(productID: String) -> ListingAssetsDTO? {
         guard !isInvalidated else { return nil }
         return try? snapshots.load(productID: productID)
     }
 
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     /// Assets for one marketplace, for the Review screen's chips.
     func assets(for marketplace: String) -> [GeneratedAssetDTO] {
         result?.assets.filter { $0.marketplace == marketplace } ?? []

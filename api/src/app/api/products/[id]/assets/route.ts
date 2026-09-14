@@ -33,7 +33,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .from("assets")
     .select("id, type, marketplace, content, validation_status, violations, created_at")
     .eq("product_id", id)
-<<<<<<< HEAD
     .neq("marketplace", "source")
     .order("created_at", { ascending: true });
   if (dbError) return error("Could not load this listing.", 500);
@@ -45,12 +44,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   return json({
     failures: latest?.result?.failures ?? [],
-=======
-    .order("created_at", { ascending: true });
-  if (dbError) return error("Could not load this listing.", 500);
-
-  return json({
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     product: { id: product.id, name: product.name, category: product.category ?? null },
     assets: (data ?? []).map((row) => ({
       id: row.id as string,

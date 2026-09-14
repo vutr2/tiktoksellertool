@@ -1,19 +1,4 @@
 import { supabaseAdmin } from "./supabase";
-<<<<<<< HEAD
-=======
-import { appendEntry } from "./credits.ts";
-
-/**
- * Credits a brand-new workspace starts with.
- *
- * SPEC §6: "7-day free trial with 100 credits, configured as an introductory
- * offer." The StoreKit introductory offer itself is M5; until then this is what
- * lets a fresh account use the product at all, instead of meeting a 402 on its
- * first generation.
- */
-const TRIAL_CREDITS = 100;
-
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 export interface AppUser {
   id: string;
   email: string | null;
@@ -113,19 +98,6 @@ async function ensureOrg(ownerUserId: string, fullName: string | null): Promise<
 
   const orgId = data.id as string;
 
-<<<<<<< HEAD
   // Trial credits now come exclusively from verified Apple introductory offers.
-=======
-  // Granted once, here, because this branch only runs when the workspace is
-  // created. A grant on every sign-in would be free credits for anyone who
-  // signs out and back in.
-  try {
-    await appendEntry(orgId, TRIAL_CREDITS, "subscription.grant");
-  } catch {
-    // A missing grant must not block sign-in; the seller meets a clear
-    // "not enough credits" message instead of a failed login.
-  }
-
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
   return orgId;
 }

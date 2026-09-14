@@ -89,7 +89,6 @@ final class EmailSignInUITests: XCTestCase {
         return false
     }
 
-<<<<<<< HEAD
     /// Returns the app to the signed-out state if a previous run left a session.
     ///
     /// The session lives in the simulator Keychain and survives reinstalls, so
@@ -112,8 +111,6 @@ final class EmailSignInUITests: XCTestCase {
                       "Signing out did not return the app to the sign-in screen.")
     }
 
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     @MainActor
     func testEmailSignInReachesTheAPI() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_LIVE_AUTH_TESTS"] == "1",

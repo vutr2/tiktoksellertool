@@ -21,15 +21,12 @@ struct ReviewAsset: Identifiable, Hashable {
     let status: ComplianceStatus
     let violations: [ViolationDTO]
 
-<<<<<<< HEAD
     var displayedStatus: ComplianceStatus {
         if status == .fail || violations.contains(where: \.isFailure) { return .fail }
         if status == .warn || !violations.isEmpty { return .warn }
         return .pass
     }
 
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     init(_ stored: StoredAssetDTO) {
         id = stored.id
         type = stored.type
@@ -55,7 +52,6 @@ struct ReviewView: View {
 
     let productName: String
     let assets: [ReviewAsset]
-<<<<<<< HEAD
     var productID: String? = nil
     /// Marketplaces that produced nothing, so a silent gap is never mistaken
     /// for a clean result.
@@ -65,13 +61,6 @@ struct ReviewView: View {
     @State private var selectedMarketplace: String?
     @State private var reportingAsset: ReviewAsset?
     @State private var copiedAssetID: String?
-=======
-    /// Marketplaces that produced nothing, so a silent gap is never mistaken
-    /// for a clean result.
-    var failures: [GenerationFailureDTO] = []
-
-    @State private var selectedMarketplace: String?
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
     private var marketplaces: [String] {
         var seen: [String] = []
@@ -80,14 +69,10 @@ struct ReviewView: View {
         return seen
     }
 
-<<<<<<< HEAD
     private var current: String? {
         if let selectedMarketplace, marketplaces.contains(selectedMarketplace) { return selectedMarketplace }
         return marketplaces.first
     }
-=======
-    private var current: String? { selectedMarketplace ?? marketplaces.first }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
     private var shown: [ReviewAsset] {
         guard let current else { return [] }
@@ -114,7 +99,6 @@ struct ReviewView: View {
                 chips
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-<<<<<<< HEAD
                         if let notice {
                             Label(notice, systemImage: "wifi.exclamationmark")
                                 .font(.footnote)
@@ -127,12 +111,6 @@ struct ReviewView: View {
                             failureBanner(failure)
                         }
                         ForEach(Array(shown.enumerated()), id: \.offset) { _, asset in
-=======
-                        if let failure = currentFailure {
-                            failureBanner(failure)
-                        }
-                        ForEach(shown) { asset in
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                             assetCard(asset)
                         }
                     }
@@ -141,14 +119,11 @@ struct ReviewView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-<<<<<<< HEAD
         .sheet(item: $reportingAsset) { asset in
             if let productID {
                 ContentReportView(productID: productID, asset: asset)
             }
         }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     // MARK: Header
@@ -174,7 +149,6 @@ struct ReviewView: View {
         guard let current else { return nil }
         let name = displayName(current)
         let body = shown
-<<<<<<< HEAD
             .map { asset in
                 let violations = asset.violations.map { violation in
                     [violation.message, violation.detail].compactMap { $0 }.joined(separator: " ")
@@ -185,11 +159,6 @@ struct ReviewView: View {
             .joined(separator: "\n\n")
         let failure = currentFailure.map { "\n\nGeneration incomplete: \($0.reason)" } ?? ""
         return body.isEmpty ? nil : "\(productName) — \(name)\n\n\(body)\(failure)"
-=======
-            .map { "\($0.type.capitalized)\n\($0.content)" }
-            .joined(separator: "\n\n")
-        return body.isEmpty ? nil : "\(productName) — \(name)\n\n\(body)"
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     // MARK: Marketplace chips
@@ -213,11 +182,8 @@ struct ReviewView: View {
                         .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                     }
                     .buttonStyle(.plain)
-<<<<<<< HEAD
                     .accessibilityLabel("\(displayName(marketplace)), \(worstStatus(for: marketplace).rawValue)")
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 }
             }
             .padding(.horizontal, 20)
@@ -232,11 +198,7 @@ struct ReviewView: View {
             HStack {
                 Text(asset.type.capitalized).font(.headline)
                 Spacer()
-<<<<<<< HEAD
                 badge(asset.displayedStatus)
-=======
-                badge(asset.status)
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             }
 
             Text(asset.content)
@@ -244,11 +206,7 @@ struct ReviewView: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-<<<<<<< HEAD
             ForEach(Array(asset.violations.enumerated()), id: \.offset) { _, violation in
-=======
-            ForEach(asset.violations) { violation in
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 // The rule in plain English, exactly as the engine worded it
                 // (SPEC §10). No codes reach the screen.
                 VStack(alignment: .leading, spacing: 3) {
@@ -265,7 +223,6 @@ struct ReviewView: View {
                 .foregroundStyle(violation.isFailure ? .red : .orange)
             }
 
-<<<<<<< HEAD
             HStack {
                 Button {
                     UIPasteboard.general.string = asset.content
@@ -283,14 +240,6 @@ struct ReviewView: View {
                 }
             }
             .font(.footnote)
-=======
-            Button {
-                UIPasteboard.general.string = asset.content
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-                    .font(.footnote)
-            }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         }
         .padding(16)
         .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
@@ -311,11 +260,7 @@ struct ReviewView: View {
 
     private func worstStatus(for marketplace: String) -> ComplianceStatus {
         if failures.contains(where: { $0.marketplace == marketplace }) { return .fail }
-<<<<<<< HEAD
         let statuses = assets.filter { $0.marketplace == marketplace }.map(\.displayedStatus)
-=======
-        let statuses = assets.filter { $0.marketplace == marketplace }.map(\.status)
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         if statuses.isEmpty { return .fail }
         if statuses.contains(.fail) { return .fail }
         if statuses.contains(.warn) { return .warn }
@@ -349,7 +294,6 @@ struct ReviewView: View {
         appEnvironment.rules.marketplaces.first { $0.id == id }?.displayName ?? id
     }
 }
-<<<<<<< HEAD
 
 private struct ContentReportView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -429,5 +373,3 @@ private struct ContentReportView: View {
         let type: String
     }
 }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196

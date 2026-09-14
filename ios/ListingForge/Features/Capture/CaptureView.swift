@@ -28,17 +28,11 @@ struct CaptureView: View {
     @State private var cutouts: [ProductCutout] = []
     @State private var latestCutout: ProductCutout?
     @State private var showingCutout = false
-<<<<<<< HEAD
     @State private var showingRefinement = false
     @State private var showingDetails = false
     /// The listing just generated, shown in Review (design step 4).
     @State private var generatedListing: GenerateResultDTO?
     @State private var pendingListing: GenerateResultDTO?
-=======
-    @State private var showingDetails = false
-    /// The listing just generated, shown in Review (design step 4).
-    @State private var generatedListing: GenerateResultDTO?
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
     private var rules: RulesStore { appEnvironment.rules }
     private var hasRoomForPhoto: Bool {
@@ -90,7 +84,6 @@ struct CaptureView: View {
             if let photo { importPhoto(photo) }
         }
         .sheet(isPresented: $showingCutout) { cutoutReview }
-<<<<<<< HEAD
         .sheet(isPresented: $showingRefinement) {
             if let cutout = latestCutout {
                 CutoutRefinementView(original: cutout) { refined in
@@ -104,13 +97,10 @@ struct CaptureView: View {
                 }
             }
         }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         .sheet(item: $generatedListing) { listing in
             ReviewView(
                 productName: listing.facts.suggestedName,
                 assets: listing.assets.map(ReviewAsset.init),
-<<<<<<< HEAD
                 productID: listing.productId,
                 failures: listing.failures
             )
@@ -125,22 +115,12 @@ struct CaptureView: View {
                 camera.resetSeries()
             }
         }) {
-=======
-                failures: listing.failures
-            )
-        }
-        .sheet(isPresented: $showingDetails) {
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             ProductDetailsView(
                 cutouts: cutouts,
                 onCreated: { _ in
                     // The product now exists on the server, so the in-memory
                     // series is finished with. Clearing it also drops the
                     // hardware exposure lock for the next product.
-<<<<<<< HEAD
-=======
-                    cutouts.removeAll()
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                     // resetSeries() also releases the hardware exposure and
                     // white-balance lock; series.reset() only clears the state
                     // machine, leaving the next product metered for the last one.
@@ -149,12 +129,8 @@ struct CaptureView: View {
                 onGenerated: { result in
                     // Discarding this was the gap Codex flagged: credits are
                     // charged, so the seller must be handed the listing.
-<<<<<<< HEAD
                     pendingListing = result
                     showingDetails = false
-=======
-                    generatedListing = result
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 }
             )
         }
@@ -183,10 +159,7 @@ struct CaptureView: View {
                     .foregroundStyle(.black)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-<<<<<<< HEAD
             .disabled(isProcessing)
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             .padding(.horizontal, 28)
             .padding(.top, 16)
         }

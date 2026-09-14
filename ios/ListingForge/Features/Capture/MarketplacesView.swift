@@ -20,15 +20,12 @@ struct MarketplacesView: View {
 
     @State private var selected: Set<String> = []
     @State private var scriptCount = 0
-<<<<<<< HEAD
     @State private var showingPlans = false
     @State private var showingAIConsent = false
     @State private var confirmedQuoteKey: String?
     @State private var isSubmitting = false
 
     private var quoteKey: String { selected.sorted().joined(separator: ",") + ":\(scriptCount)" }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
     private var rules: RulesStore { appEnvironment.rules }
     private var generation: GenerationStore { appEnvironment.generation }
@@ -45,10 +42,7 @@ struct MarketplacesView: View {
                         row(marketplace)
                     }
                     scriptsRow
-<<<<<<< HEAD
                         .disabled(isSubmitting || generation.pendingRequest(productID: product.id) != nil)
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
                     if let message = generation.errorMessage {
                         Text(message)
@@ -62,7 +56,6 @@ struct MarketplacesView: View {
             footer
         }
         .background(Color(.systemGroupedBackground))
-<<<<<<< HEAD
         .interactiveDismissDisabled(isSubmitting)
         .sheet(isPresented: $showingPlans) { PaywallView() }
         .sheet(isPresented: $showingAIConsent) {
@@ -74,9 +67,6 @@ struct MarketplacesView: View {
                 scriptCount = pending.scriptCount
             }
             await appEnvironment.billing.refresh()
-=======
-        .task {
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             await rules.load()
             if let token = appEnvironment.auth.token {
                 await generation.loadBalance(token: token)
@@ -86,24 +76,14 @@ struct MarketplacesView: View {
                let included = rules.marketplaces.first(where: { $0.tier == "included" }) {
                 selected.insert(included.id)
             }
-<<<<<<< HEAD
         }
         .task(id: quoteKey) { await requote() }
-=======
-            await requote()
-        }
-        .onChange(of: selected) { _, _ in Task { await requote() } }
-        .onChange(of: scriptCount) { _, _ in Task { await requote() } }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     private var header: some View {
         HStack {
             Button("Back") { dismiss() }
-<<<<<<< HEAD
                 .disabled(isSubmitting)
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             Spacer()
             Text("Marketplaces").font(.headline)
             Spacer()
@@ -124,13 +104,10 @@ struct MarketplacesView: View {
 
     private func row(_ marketplace: MarketplaceRulesDTO) -> some View {
         Button {
-<<<<<<< HEAD
             guard appEnvironment.billing.status?.allowedMarketplaces.contains(marketplace.id) == true else {
                 showingPlans = true
                 return
             }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             if selected.contains(marketplace.id) { selected.remove(marketplace.id) }
             else { selected.insert(marketplace.id) }
         } label: {
@@ -149,12 +126,6 @@ struct MarketplacesView: View {
 
                 Spacer()
 
-<<<<<<< HEAD
-=======
-                // TODO(M5): a Starter seller tapping a Pro marketplace must get
-                // the paywall sheet (SPEC §6). Subscription state does not exist
-                // yet, so the badge is informational yet everything is选択able.
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 Text(marketplace.requiresProPlan ? "Pro" : "Included")
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 10)
@@ -167,10 +138,7 @@ struct MarketplacesView: View {
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-<<<<<<< HEAD
         .disabled(isSubmitting || generation.pendingRequest(productID: product.id) != nil)
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     private var scriptsRow: some View {
@@ -192,7 +160,6 @@ struct MarketplacesView: View {
             Text(costCaption)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-<<<<<<< HEAD
             if !selected.isEmpty, !generation.isQuoting, generation.quotedCredits == nil {
                 Button("Retry credit estimate") { Task { await requote() } }
             }
@@ -200,9 +167,6 @@ struct MarketplacesView: View {
             if generation.needsMoreCredits {
                 Button("View plans and credits") { showingPlans = true }
             }
-=======
-
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             Button(action: generate) {
                 Group {
                     if generation.isGenerating {
@@ -229,7 +193,6 @@ struct MarketplacesView: View {
         return "Estimated cost · \(credits) credits of your \(balance) this month"
     }
 
-<<<<<<< HEAD
     private var canGenerate: Bool {
         !selected.isEmpty && !generation.isGenerating && !isSubmitting
             && !generation.isQuoting && confirmedQuoteKey == quoteKey
@@ -242,19 +205,11 @@ struct MarketplacesView: View {
         let store = generation
         confirmedQuoteKey = nil
         await store.quote(
-=======
-    private var canGenerate: Bool { !selected.isEmpty && !generation.isGenerating }
-
-    private func requote() async {
-        guard let token = appEnvironment.auth.token else { return }
-        await generation.quote(
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             productID: product.id,
             marketplaces: Array(selected).sorted(),
             scriptCount: scriptCount,
             token: token
         )
-<<<<<<< HEAD
         guard !Task.isCancelled, appEnvironment.auth.token == token, quoteKey == issuedKey else { return }
         if store.quotedCredits != nil { confirmedQuoteKey = issuedKey }
     }
@@ -281,23 +236,6 @@ struct MarketplacesView: View {
                 token: token
             )
             if let result, appEnvironment.auth.token == token {
-=======
-    }
-
-    private func generate() {
-        guard let token = appEnvironment.auth.token else { return }
-        Task {
-            // The result is taken from the call, not read back off the store:
-            // shared state inspected after an await can still hold an earlier
-            // successful run, which would dismiss on a failed request.
-            let result = await generation.generate(
-                productID: product.id,
-                marketplaces: Array(selected).sorted(),
-                scriptCount: scriptCount,
-                token: token
-            )
-            if let result {
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 onGenerated(result)
                 dismiss()
             }

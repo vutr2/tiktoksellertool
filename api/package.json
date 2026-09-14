@@ -12,10 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
-<<<<<<< HEAD
     "@apple/app-store-server-library": "^3.1.0",
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     "@langfuse/otel": "^5.11.1",
     "@langfuse/tracing": "^5.11.1",
     "@opentelemetry/sdk-trace-node": "^2.11.0",

@@ -158,7 +158,6 @@ contains zero module-resolution errors.
 
 Worth carrying forward: **a green unit suite says nothing about whether the app
 boots.** Hit a real endpoint after touching anything the bundler sees.
-<<<<<<< HEAD
 
 
 ## Claude — findings 3/7/8 (2026-09-14)
@@ -306,8 +305,6 @@ Verified by running the disposable-cluster test with all migrations applied —
 expire". 91 API tests, 159 iOS tests, typecheck clean.
 
 **Migration 0005 is not applied to the live Supabase project.**
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
 ## Current slice
 
@@ -519,7 +516,6 @@ that has a host but a path not starting with `/` is invalid and `.url` returns
 **nil silently**. The first fix therefore appeared to work — the fallback
 produced the right path — while quietly dropping the query. `APIClientURLTests`
 pins both the path and the query now.
-<<<<<<< HEAD
 
 ## Codex implementation update — 14 September 2026
 
@@ -528,5 +524,3 @@ The earlier review-only notes above are historical. See [SUBMISSION_READINESS.md
 Do not restore the old account-creation 100-credit grant: trial credits now come from verified Apple introductory offers. Do not finish a StoreKit transaction before server acknowledgment, or accept unsigned Xcode JWS payloads on the real backend. The ledger is append-only and generation output/debit are atomic. All captured angles now upload with resumable draft identity; cutouts and uncertain generation IDs survive relaunch.
 
 Pending owner decision: paid credit expiry conflicts with current Apple §3.1.1 wording. The proposal is to preserve purchased credits, with subscription feature access still expiring normally. Current migration retains SPEC expiry pending that answer. Real production policy/support/API/terms URLs and Apple Sandbox/Release validation are still required.
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196

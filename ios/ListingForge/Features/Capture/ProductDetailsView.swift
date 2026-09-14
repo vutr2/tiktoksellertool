@@ -32,23 +32,16 @@ struct ProductDetailsView: View {
     /// used to make Continue create a second product for the same photos.
     @State private var savedProduct: ProductDTO?
     @State private var showingMarketplaces = false
-<<<<<<< HEAD
     @State private var isSubmitting = false
     @State private var draftID = UUID()
     @State private var hasSubmitted = false
     @State private var pendingResult: GenerateResultDTO?
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
     private var store: ProductStore { appEnvironment.products }
     private var mainCutout: ProductCutout? { cutouts.first }
 
     private var canContinue: Bool {
-<<<<<<< HEAD
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSubmitting
-=======
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isSaving
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
     }
 
     var body: some View {
@@ -70,7 +63,6 @@ struct ProductDetailsView: View {
                     }
                 }
                 .padding(20)
-<<<<<<< HEAD
                 .disabled(isSubmitting || hasSubmitted)
 
                 if hasSubmitted && savedProduct == nil && !isSubmitting {
@@ -86,14 +78,11 @@ struct ProductDetailsView: View {
                 if let warning = appEnvironment.captureDraft.errorMessage {
                     Text(warning).font(.footnote).foregroundStyle(.orange).padding(.horizontal)
                 }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             }
 
             continueButton
         }
         .background(Color(.systemGroupedBackground))
-<<<<<<< HEAD
         .interactiveDismissDisabled(isSubmitting)
         .task {
             let draft = appEnvironment.captureDraft.draft
@@ -117,13 +106,6 @@ struct ProductDetailsView: View {
                 MarketplacesView(product: product) { result in
                     pendingResult = result
                     showingMarketplaces = false
-=======
-        .sheet(isPresented: $showingMarketplaces) {
-            if let product = savedProduct {
-                MarketplacesView(product: product) { result in
-                    onGenerated(result)
-                    dismiss()
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
                 }
             }
         }
@@ -134,10 +116,7 @@ struct ProductDetailsView: View {
     private var header: some View {
         HStack {
             Button("Back") { dismiss() }
-<<<<<<< HEAD
                 .disabled(isSubmitting)
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             Spacer()
             Text("Product details").font(.headline)
             Spacer()
@@ -235,10 +214,7 @@ struct ProductDetailsView: View {
     }
 
     private func save() {
-<<<<<<< HEAD
         guard !isSubmitting else { return }
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
         // Already saved: reopen step 3 rather than creating the product again.
         if savedProduct != nil {
             showingMarketplaces = true
@@ -248,7 +224,6 @@ struct ProductDetailsView: View {
             store.errorMessage = "Your session expired. Sign in again."
             return
         }
-<<<<<<< HEAD
         let features = Self.features(from: keyFeatures)
         guard name.trimmingCharacters(in: .whitespacesAndNewlines).count <= 200,
               category.count <= 300, features.count <= 10, features.allSatisfy({ $0.count <= 300 }) else {
@@ -274,37 +249,18 @@ struct ProductDetailsView: View {
             )
             guard let created, appEnvironment.auth.token == token,
                   draftStore.draft.id == draftID else { return }
-=======
-
-        Task {
-            let created = await store.create(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                category: ProductDetailsView.trimmedOrNil(category),
-                keyFeatures: ProductDetailsView.features(from: keyFeatures),
-                cutoutPNG: mainCutout?.pngData,
-                token: token
-            )
-            guard let created else { return }
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
             // Mirror for offline viewing only after the server confirmed it
             // (SPEC §9). Failing to cache must not fail the creation.
             modelContext.insert(ProductCacheMapper.cached(from: created))
-<<<<<<< HEAD
             do { try modelContext.save() }
             catch { currentStore.errorMessage = "Your product is saved online, but its offline copy could not be saved." }
-=======
-            try? modelContext.save()
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
 
             onCreated(created)
             // Straight on to marketplace selection — the design is one flow,
             // not a save-and-come-back-later.
             savedProduct = created
-<<<<<<< HEAD
             draftStore.draft.savedProduct = created
-=======
->>>>>>> 3ff38ea39f05dc82917017d27205ffbd96e51196
             showingMarketplaces = true
         }
     }
