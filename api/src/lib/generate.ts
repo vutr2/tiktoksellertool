@@ -12,7 +12,8 @@ import {
   AnthropicVisionProvider,
 } from "./ai/anthropic.ts";
 import type { ModelUsage, ProductFacts } from "./ai/types.ts";
-import { CREDIT_COST, assertCanAfford, balanceOf, chargeCredits } from "./credits.ts";
+import { CREDIT_COST, InsufficientCreditsError } from "./credits.ts";
+import { createHash } from "node:crypto";
 import { rulesFor } from "./rules/registry.ts";
 import { statusOf, validate } from "./rules/validate.ts";
 import type { MarketplaceId, Violation } from "./rules/types.ts";
@@ -23,6 +24,7 @@ import { supabaseAdmin } from "./supabase.ts";
 const CREDITS_PER_MARKETPLACE = CREDIT_COST.titleOrDescription * 2;
 
 export interface GenerateInput {
+  requestId?: string;
   productId: string;
   marketplaces: MarketplaceId[];
   /** 0 skips ad scripts entirely. */
@@ -30,6 +32,7 @@ export interface GenerateInput {
 }
 
 export interface GeneratedAsset {
+  id?: string;
   type: "title" | "description" | "script";
   marketplace: string;
   content: string;
@@ -69,11 +72,27 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
   if (productError) throw new Error(productError.message);
   if (!product) throw new Error("That product could not be found.");
 
-  // Before any model runs (SPEC §6).
-  await assertCanAfford(orgId, quoteCredits(input));
-
-  const usages: ModelUsage[] = [];
-  const facts = await describeProduct(product, usages);
+  if (!input.requestId) throw new GenerationRequestError("This generation needs a request identifier.", 400);
+  if (product.attributes?.captureStatus === "uploading") throw new GenerationRequestError("Finish uploading your photos first.", 409);
+  const immutableInput = { marketplaces: input.marketplaces, scriptCount: input.scriptCount };
+  const inputHash = createHash("sha256").update(JSON.stringify(immutableInput)).digest("hex");
+  const { data: reservation, error: reserveError } = await db.rpc("begin_generation", {
+    p_request_id: input.requestId, p_org_id: orgId, p_product_id: input.productId,
+    p_input_hash: inputHash, p_input: immutableInput, p_quoted_credits: quoteCredits(input),
+  });
+  if (reserveError) throw new GenerationRequestError("Generation is temporarily unavailable. Please try again.", 503);
+  if (reservation.status === "completed") return reservation.result as GenerateResult;
+  if (reservation.status === "running") throw new GenerationRequestError("Your listing is still being generated. Check again shortly.", 409);
+  if (reservation.status === "insufficient") throw new InsufficientCreditsError(reservation.required, reservation.available);
+  if (reservation.status === "not_found") throw new GenerationRequestError("That product could not be found.", 404);
+  if (reservation.status === "conflict") throw new GenerationRequestError("This request belongs to a different selection. Start a new generation.", 409);
+  if (reservation.status !== "started") throw new GenerationRequestError("This account is unavailable.", 403);
+  const leaseToken = reservation.leaseToken as string;
+  try {
+  const usages: (ModelUsage & { creditsCharged: number })[] = [];
+  const visionUsages: ModelUsage[] = [];
+  const facts = await describeProduct(product, visionUsages);
+  usages.push(...visionUsages.map(usage => ({ ...usage, creditsCharged: 0 })));
 
   const assets: GeneratedAsset[] = [];
   const failures: { marketplace: string; reason: string }[] = [];
@@ -95,7 +114,8 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           forbidAllCaps: rules.title?.forbid?.includes("allCaps") ?? false,
         },
       });
-      usages.push(copy.usage);
+      const usage = { ...copy.usage, creditsCharged: 0 };
+      usages.push(usage);
 
       // The generated copy is judged by the same engine that judges a seller's
       // own text — the model is not trusted to have followed the limits.
@@ -124,7 +144,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
       });
 
       // Charged only now that this marketplace produced something.
-      await chargeCredits(orgId, CREDITS_PER_MARKETPLACE, "generation.title");
+      usage.creditsCharged = CREDITS_PER_MARKETPLACE;
       creditsCharged += CREDITS_PER_MARKETPLACE;
     } catch (error) {
       failures.push({
@@ -141,9 +161,11 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         marketplace: rulesFor(input.marketplaces[0]).displayName,
         count: input.scriptCount,
       });
-      usages.push(scripts.usage);
+      const usage = { ...scripts.usage, creditsCharged: 0 };
+      usages.push(usage);
 
-      for (const script of scripts.value) {
+      const completedScripts = scripts.value.slice(0, input.scriptCount);
+      for (const script of completedScripts) {
         assets.push({
           type: "script",
           marketplace: input.marketplaces[0],
@@ -152,8 +174,8 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           violations: [],
         });
       }
-      const scriptCredits = scripts.value.length * CREDIT_COST.adScript;
-      await chargeCredits(orgId, scriptCredits, "generation.script");
+      const scriptCredits = completedScripts.length * CREDIT_COST.adScript;
+      usage.creditsCharged = scriptCredits;
       creditsCharged += scriptCredits;
     } catch (error) {
       failures.push({
@@ -163,18 +185,24 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
     }
   }
 
-  await persist(orgId, product.id as string, assets, usages);
+  const response = { productId: product.id as string, facts, assets, failures, creditsCharged, balanceAfter: 0 };
+  const { data: settled, error: settlementError } = await db.rpc("complete_generation", {
+    p_request_id: input.requestId, p_lease_token: leaseToken, p_assets: assets,
+    p_usages: usages, p_result: response, p_credits_to_charge: creditsCharged,
+  });
+  if (settlementError) throw new GenerationRequestError("We could not confirm your listing. Check this request again before starting another.", 503);
+  return settled as GenerateResult;
+  } catch (error) {
+    // Completion may have committed even if its response was lost. The RPC only
+    // releases a still-running lease, never a completed debit/result.
+    await db.rpc("fail_generation", { p_request_id: input.requestId, p_lease_token: leaseToken });
+    throw error;
+  }
+}
 
-  const { balance } = await balanceOf(orgId);
-
-  return {
-    productId: product.id as string,
-    facts,
-    assets,
-    failures,
-    creditsCharged,
-    balanceAfter: balance,
-  };
+export class GenerationRequestError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) { super(message); this.status = status; }
 }
 
 /** Reads the cutout and asks Claude what the product is. */
@@ -187,7 +215,8 @@ async function describeProduct(
   if (path) {
     const db = supabaseAdmin();
     const { data, error } = await db.storage.from(CUTOUT_BUCKET).download(path);
-    if (!error && data) {
+    if (error || !data) throw new Error("Your photo could not be loaded. Retry this listing.");
+    if (data) {
       const vision = await new AnthropicVisionProvider().readProduct({
         bytes: new Uint8Array(await data.arrayBuffer()),
         mediaType: "image/png",
@@ -207,44 +236,4 @@ async function describeProduct(
       : [],
     visibleText: [],
   };
-}
-
-/** Writes the asset rows and one generations row per model call (SPEC §9). */
-async function persist(
-  orgId: string,
-  productId: string,
-  assets: GeneratedAsset[],
-  usages: ModelUsage[],
-): Promise<void> {
-  const db = supabaseAdmin();
-
-  if (assets.length > 0) {
-    const { error } = await db.from("assets").insert(
-      assets.map((asset) => ({
-        product_id: productId,
-        type: asset.type,
-        marketplace: asset.marketplace,
-        content: asset.content,
-        validation_status: asset.status,
-        violations: asset.violations,
-      })),
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  if (usages.length > 0) {
-    // actual_cost_usd stays null when the model's rate is unknown — never 0.
-    const { error } = await db.from("generations").insert(
-      usages.map((usage) => ({
-        org_id: orgId,
-        provider: usage.provider,
-        model: usage.model,
-        credits_charged: 0,
-        actual_cost_usd: usage.costUSD,
-        latency_ms: usage.latencyMs,
-        langfuse_trace_id: usage.traceId,
-      })),
-    );
-    if (error) throw new Error(error.message);
-  }
 }

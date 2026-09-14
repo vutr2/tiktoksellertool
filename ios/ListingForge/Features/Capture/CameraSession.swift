@@ -35,14 +35,9 @@ final class CameraSession {
     let series = CaptureSeries()
 
     /// Handed to the SwiftUI preview layer.
-    let captureSession = AVCaptureSession()
-
-    private var device: AVCaptureDevice?
-    private var photoOutput: AVCapturePhotoOutput?
-    private let sessionQueue = DispatchQueue(label: "com.ctt.listingforge.camera")
-    private var analyzer: FrameAnalyzer?
+    private let hardware = CameraHardware()
+    var captureSession: AVCaptureSession { hardware.session }
     private var photoDelegate: PhotoCaptureDelegate?
-    private var isConfigured = false
     private var startID: UUID?
     private var captureID: UUID?
     private var wantsRunning = false
@@ -80,29 +75,16 @@ final class CameraSession {
             state = .unavailable("ListingForge needs camera access. Enable it in Settings to photograph products.")
             return
         }
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            // The usual case in the simulator.
-            state = .unavailable("No camera on this device. Import a photo from your library instead.")
-            return
-        }
-        device = camera
-
         do {
-            if !isConfigured {
-                try configure(camera: camera)
-                isConfigured = true
+            try await hardware.start { [weak self] stats in
+                Task { @MainActor in self?.lighting = LightingAssessment.verdict(for: stats) }
             }
         } catch {
-            state = .unavailable("The camera could not be started. Try again.")
+            guard startID == id else { return }
+            state = .unavailable(error is CameraHardware.NoCamera
+                ? "No camera on this device. Import a photo from your library instead."
+                : "The camera could not be started. Try again.")
             return
-        }
-
-        let session = captureSession
-        await withCheckedContinuation { continuation in
-            sessionQueue.async {
-                session.startRunning()
-                continuation.resume()
-            }
         }
         guard startID == id, !Task.isCancelled else { return }
         state = captureSession.isRunning && !captureSession.isInterrupted
@@ -113,8 +95,7 @@ final class CameraSession {
         wantsRunning = false
         startID = nil
         photoDelegate?.fail(CancellationError())
-        let session = captureSession
-        sessionQueue.async { session.stopRunning() }
+        hardware.stop()
         state = .idle
     }
 
@@ -147,78 +128,8 @@ final class CameraSession {
         }
     }
 
-    private func configure(camera: AVCaptureDevice) throws {
-        captureSession.beginConfiguration()
-        defer { captureSession.commitConfiguration() }
-        var succeeded = false
-        defer {
-            if !succeeded {
-                for input in captureSession.inputs { captureSession.removeInput(input) }
-                for output in captureSession.outputs { captureSession.removeOutput(output) }
-                photoOutput = nil
-                analyzer = nil
-            }
-        }
-
-        captureSession.sessionPreset = .photo
-
-        let input = try AVCaptureDeviceInput(device: camera)
-        guard captureSession.canAddInput(input) else { throw CameraError.configurationFailed }
-        captureSession.addInput(input)
-
-        let photo = AVCapturePhotoOutput()
-        guard captureSession.canAddOutput(photo) else { throw CameraError.configurationFailed }
-        captureSession.addOutput(photo)
-        photoOutput = photo
-        if let connection = photo.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
-            connection.videoRotationAngle = 90
-        }
-
-        // Preview frames, used only to judge the light.
-        let video = AVCaptureVideoDataOutput()
-        video.alwaysDiscardsLateVideoFrames = true
-        video.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
-        ]
-        let analyzer = FrameAnalyzer { [weak self] stats in
-            Task { @MainActor in self?.lighting = LightingAssessment.verdict(for: stats) }
-        }
-        video.setSampleBufferDelegate(analyzer, queue: sessionQueue)
-        if captureSession.canAddOutput(video) {
-            captureSession.addOutput(video)
-            self.analyzer = analyzer
-        }
-        succeeded = true
-    }
-
-    // MARK: Exposure lock (SPEC §4.2)
-
-    /// Holds metering so later angles of the same SKU match, or releases it
-    /// when the seller deliberately changes the light.
-    func applyExposureLock(_ locked: Bool) {
-        guard let device else { return }
-        sessionQueue.async {
-            do {
-                try device.lockForConfiguration()
-                defer { device.unlockForConfiguration() }
-
-                if locked {
-                    if device.isExposureModeSupported(.locked) { device.exposureMode = .locked }
-                    if device.isWhiteBalanceModeSupported(.locked) { device.whiteBalanceMode = .locked }
-                } else {
-                    if device.isExposureModeSupported(.continuousAutoExposure) {
-                        device.exposureMode = .continuousAutoExposure
-                    }
-                    if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
-                        device.whiteBalanceMode = .continuousAutoWhiteBalance
-                    }
-                }
-            } catch {
-                // A locked-out device is not worth failing the shot over; the
-                // series simply meters per frame.
-            }
-        }
-    }
+    /// All metering changes share the hardware queue with configuration and capture.
+    func applyExposureLock(_ locked: Bool) { hardware.applyExposureLock(locked) }
 
     // MARK: Capture
 
@@ -235,8 +146,7 @@ final class CameraSession {
 
     /// Keeps the HEIF data and its orientation metadata until segmentation.
     func capturePhoto(flashMode: AVCaptureDevice.FlashMode = .auto) async throws -> Data {
-        guard state == .running, captureSession.isRunning, !captureSession.isInterrupted,
-              let photoOutput else { throw CameraError.notRunning }
+        guard state == .running, captureSession.isRunning, !captureSession.isInterrupted else { throw CameraError.notRunning }
         guard !isCapturing, series.canCapture else { throw CameraError.captureUnavailable }
         try Task.checkCancellation()
         let id = UUID()
@@ -248,17 +158,6 @@ final class CameraSession {
             isCapturing = false
             captureID = nil
             photoDelegate = nil
-        }
-
-        let settings: AVCapturePhotoSettings
-        if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-            settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-        } else {
-            // Older hardware: JPEG rather than refusing to shoot.
-            settings = AVCapturePhotoSettings()
-        }
-        if photoOutput.supportedFlashModes.contains(flashMode) {
-            settings.flashMode = flashMode
         }
 
         let data: Data = try await withTaskCancellationHandler {
@@ -275,7 +174,7 @@ final class CameraSession {
                     self.stop()
                     self.state = .unavailable("The camera took too long. Try starting it again.")
                 }
-                photoOutput.capturePhoto(with: settings, delegate: delegate)
+                hardware.capture(flashMode: flashMode, delegate: delegate)
             }
         } onCancel: {
             Task { @MainActor [weak self] in
@@ -290,6 +189,110 @@ final class CameraSession {
         applyExposureLock(series.exposureLock == .locked)
         return data
     }
+}
+
+
+/// AVFoundation mutable state is confined to `queue`; only the immutable session
+/// reference is exposed for the preview layer and thread-safe status reads.
+private final class CameraHardware: @unchecked Sendable {
+    struct NoCamera: Error {}
+    let session = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "com.ctt.listingforge.camera")
+    private var device: AVCaptureDevice?
+    private var photoOutput: AVCapturePhotoOutput?
+    private var analyzer: FrameAnalyzer?
+    private var configured = false
+
+    func start(onStats: @escaping @Sendable (LuminanceStats) -> Void) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            sessionQueue.async { [self] in
+                do {
+                    if !configured {
+                        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+                        else { throw NoCamera() }
+                        try configure(camera: camera, onStats: onStats)
+                        device = camera
+                        configured = true
+                    }
+                    session.startRunning()
+                    continuation.resume()
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    func stop() { sessionQueue.async { [self] in session.stopRunning() } }
+
+    func capture(flashMode: AVCaptureDevice.FlashMode, delegate: PhotoCaptureDelegate) {
+        sessionQueue.async { [self] in
+            guard session.isRunning, !session.isInterrupted, let photoOutput else {
+                delegate.fail(CameraError.notRunning)
+                return
+            }
+            let settings = photoOutput.availablePhotoCodecTypes.contains(.hevc)
+                ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                : AVCapturePhotoSettings()
+            if photoOutput.supportedFlashModes.contains(flashMode) { settings.flashMode = flashMode }
+            photoOutput.capturePhoto(with: settings, delegate: delegate)
+        }
+    }
+
+    func applyExposureLock(_ locked: Bool) {
+        sessionQueue.async { [self] in
+            guard let device else { return }
+            do {
+                try device.lockForConfiguration()
+                defer { device.unlockForConfiguration() }
+                let exposure: AVCaptureDevice.ExposureMode = locked ? .locked : .continuousAutoExposure
+                let whiteBalance: AVCaptureDevice.WhiteBalanceMode = locked ? .locked : .continuousAutoWhiteBalance
+                if device.isExposureModeSupported(exposure) { device.exposureMode = exposure }
+                if device.isWhiteBalanceModeSupported(whiteBalance) { device.whiteBalanceMode = whiteBalance }
+            } catch { /* Capture remains available when hardware cannot lock metering. */ }
+        }
+    }
+
+    private func configure(camera: AVCaptureDevice, onStats: @escaping @Sendable (LuminanceStats) -> Void) throws {
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
+        var succeeded = false
+        defer {
+            if !succeeded {
+                for input in session.inputs { session.removeInput(input) }
+                for output in session.outputs { session.removeOutput(output) }
+                photoOutput = nil
+                analyzer = nil
+            }
+        }
+
+        session.sessionPreset = .photo
+
+        let input = try AVCaptureDeviceInput(device: camera)
+        guard session.canAddInput(input) else { throw CameraError.configurationFailed }
+        session.addInput(input)
+
+        let photo = AVCapturePhotoOutput()
+        guard session.canAddOutput(photo) else { throw CameraError.configurationFailed }
+        session.addOutput(photo)
+        photoOutput = photo
+        if let connection = photo.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        }
+
+        // Preview frames, used only to judge the light.
+        let video = AVCaptureVideoDataOutput()
+        video.alwaysDiscardsLateVideoFrames = true
+        video.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        ]
+        let analyzer = FrameAnalyzer(onStats: onStats)
+        video.setSampleBufferDelegate(analyzer, queue: sessionQueue)
+        if session.canAddOutput(video) {
+            session.addOutput(video)
+            self.analyzer = analyzer
+        }
+        succeeded = true
+    }
+
 }
 
 /// Removes observers on release without accessing main-actor state in deinit.
@@ -329,14 +332,14 @@ enum CameraError: LocalizedError {
 
 // MARK: - Photo delegate
 
-private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-    private let completion: (Result<Data, Error>) -> Void
+private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
+    private let completion: @Sendable (Result<Data, Error>) -> Void
     // Device callbacks, cancellation, and timeout must resolve a shot only once.
     private let lock = NSLock()
     private var finished = false
     private var result: Result<Data, Error>?
 
-    init(completion: @escaping (Result<Data, Error>) -> Void) {
+    init(completion: @escaping @Sendable (Result<Data, Error>) -> Void) {
         self.completion = completion
     }
 

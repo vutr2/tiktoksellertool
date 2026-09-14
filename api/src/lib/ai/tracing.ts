@@ -49,7 +49,9 @@ export async function tracedGeneration<T>(
   return startActiveObservation(
     name,
     async (generation) => {
-      generation.update({ input: context.input, model: context.model, modelParameters: context.modelParameters });
+      // Observability does not need customer photos, prompts or generated text.
+      // Keep those out of a second processor's retention/deletion lifecycle.
+      generation.update({ model: context.model, modelParameters: context.modelParameters });
 
       let outcome: GenerationOutcome<T>;
       try {
@@ -58,13 +60,12 @@ export async function tracedGeneration<T>(
         // Record the failure before rethrowing: a generation that failed is
         // exactly the one worth reading later, and SPEC §6 says it must not be
         // charged for.
-        generation.update({ output: { error: error instanceof Error ? error.message : String(error) } });
+        generation.update({ level: "ERROR", statusMessage: "Provider request failed" });
         throw error;
       }
 
       const latencyMs = Date.now() - started;
       generation.update({
-        output: outcome.output,
         usageDetails: {
           input: outcome.inputTokens,
           output: outcome.outputTokens,

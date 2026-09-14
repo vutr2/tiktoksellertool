@@ -1,4 +1,5 @@
 import { verifySession } from "@/lib/session";
+import { billingStatus } from "@/lib/billing";
 import { balanceOf } from "@/lib/credits";
 import { json, error } from "@/lib/http";
 
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await billingStatus(claims.orgId, claims.userId);
     const report = await balanceOf(claims.orgId);
     return json({
       balance: report.balance,

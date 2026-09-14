@@ -33,10 +33,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .from("assets")
     .select("id, type, marketplace, content, validation_status, violations, created_at")
     .eq("product_id", id)
+    .neq("marketplace", "source")
     .order("created_at", { ascending: true });
   if (dbError) return error("Could not load this listing.", 500);
 
+  const { data: latest, error: latestError } = await db.from("generation_requests")
+    .select("result").eq("org_id", claims.orgId).eq("product_id", id)
+    .eq("status", "completed").order("completed_at", { ascending: false }).limit(1).maybeSingle();
+  if (latestError) return error("Could not load the generation result.", 503);
+
   return json({
+    failures: latest?.result?.failures ?? [],
     product: { id: product.id, name: product.name, category: product.category ?? null },
     assets: (data ?? []).map((row) => ({
       id: row.id as string,

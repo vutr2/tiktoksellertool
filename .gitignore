@@ -28,3 +28,7 @@ api/supabase/.temp/
 # xcode-build-server (absolute paths, per-machine)
 buildServer.json
 sim.png
+
+# Local validation artifacts
+__pycache__/
+api/.next-review/

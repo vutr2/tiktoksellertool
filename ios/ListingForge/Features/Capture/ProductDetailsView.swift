@@ -32,12 +32,16 @@ struct ProductDetailsView: View {
     /// used to make Continue create a second product for the same photos.
     @State private var savedProduct: ProductDTO?
     @State private var showingMarketplaces = false
+    @State private var isSubmitting = false
+    @State private var draftID = UUID()
+    @State private var hasSubmitted = false
+    @State private var pendingResult: GenerateResultDTO?
 
     private var store: ProductStore { appEnvironment.products }
     private var mainCutout: ProductCutout? { cutouts.first }
 
     private var canContinue: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isSaving
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSubmitting
     }
 
     var body: some View {
@@ -59,16 +63,49 @@ struct ProductDetailsView: View {
                     }
                 }
                 .padding(20)
+                .disabled(isSubmitting || hasSubmitted)
+
+                if hasSubmitted && savedProduct == nil && !isSubmitting {
+                    Button("Edit as a new draft") {
+                        let draftStore = appEnvironment.captureDraft
+                        draftStore.draft.id = UUID()
+                        draftStore.draft.uploadStarted = false
+                        draftID = draftStore.draft.id
+                        hasSubmitted = false
+                    }
+                    .padding(.bottom)
+                }
+                if let warning = appEnvironment.captureDraft.errorMessage {
+                    Text(warning).font(.footnote).foregroundStyle(.orange).padding(.horizontal)
+                }
             }
 
             continueButton
         }
         .background(Color(.systemGroupedBackground))
-        .sheet(isPresented: $showingMarketplaces) {
+        .interactiveDismissDisabled(isSubmitting)
+        .task {
+            let draft = appEnvironment.captureDraft.draft
+            draftID = draft.id
+            name = draft.name
+            category = draft.category
+            keyFeatures = draft.keyFeatures
+            savedProduct = draft.savedProduct
+            hasSubmitted = draft.uploadStarted
+        }
+        .onChange(of: name) { _, value in appEnvironment.captureDraft.draft.name = value }
+        .onChange(of: category) { _, value in appEnvironment.captureDraft.draft.category = value }
+        .onChange(of: keyFeatures) { _, value in appEnvironment.captureDraft.draft.keyFeatures = value }
+        .sheet(isPresented: $showingMarketplaces, onDismiss: {
+            if let result = pendingResult {
+                pendingResult = nil
+                onGenerated(result)
+            }
+        }) {
             if let product = savedProduct {
                 MarketplacesView(product: product) { result in
-                    onGenerated(result)
-                    dismiss()
+                    pendingResult = result
+                    showingMarketplaces = false
                 }
             }
         }
@@ -79,6 +116,7 @@ struct ProductDetailsView: View {
     private var header: some View {
         HStack {
             Button("Back") { dismiss() }
+                .disabled(isSubmitting)
             Spacer()
             Text("Product details").font(.headline)
             Spacer()
@@ -176,6 +214,7 @@ struct ProductDetailsView: View {
     }
 
     private func save() {
+        guard !isSubmitting else { return }
         // Already saved: reopen step 3 rather than creating the product again.
         if savedProduct != nil {
             showingMarketplaces = true
@@ -185,26 +224,43 @@ struct ProductDetailsView: View {
             store.errorMessage = "Your session expired. Sign in again."
             return
         }
+        let features = Self.features(from: keyFeatures)
+        guard name.trimmingCharacters(in: .whitespacesAndNewlines).count <= 200,
+              category.count <= 300, features.count <= 10, features.allSatisfy({ $0.count <= 300 }) else {
+            store.errorMessage = "Use a name up to 200 characters, a category up to 300 characters and up to 10 features of 300 characters each."
+            return
+        }
 
+        isSubmitting = true
+        hasSubmitted = true
+        let currentStore = store
+        let draftStore = appEnvironment.captureDraft
+        draftStore.draft.uploadStarted = true
+        let photos = cutouts.map(\.pngData)
         Task {
-            let created = await store.create(
+            defer { isSubmitting = false }
+            let created = await currentStore.create(
+                draftID: draftID,
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                 category: ProductDetailsView.trimmedOrNil(category),
                 keyFeatures: ProductDetailsView.features(from: keyFeatures),
-                cutoutPNG: mainCutout?.pngData,
+                cutouts: photos,
                 token: token
             )
-            guard let created else { return }
+            guard let created, appEnvironment.auth.token == token,
+                  draftStore.draft.id == draftID else { return }
 
             // Mirror for offline viewing only after the server confirmed it
             // (SPEC §9). Failing to cache must not fail the creation.
             modelContext.insert(ProductCacheMapper.cached(from: created))
-            try? modelContext.save()
+            do { try modelContext.save() }
+            catch { currentStore.errorMessage = "Your product is saved online, but its offline copy could not be saved." }
 
             onCreated(created)
             // Straight on to marketplace selection — the design is one flow,
             // not a save-and-come-back-later.
             savedProduct = created
+            draftStore.draft.savedProduct = created
             showingMarketplaces = true
         }
     }

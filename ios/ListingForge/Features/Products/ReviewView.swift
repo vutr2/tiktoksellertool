@@ -21,6 +21,12 @@ struct ReviewAsset: Identifiable, Hashable {
     let status: ComplianceStatus
     let violations: [ViolationDTO]
 
+    var displayedStatus: ComplianceStatus {
+        if status == .fail || violations.contains(where: \.isFailure) { return .fail }
+        if status == .warn || !violations.isEmpty { return .warn }
+        return .pass
+    }
+
     init(_ stored: StoredAssetDTO) {
         id = stored.id
         type = stored.type
@@ -46,11 +52,15 @@ struct ReviewView: View {
 
     let productName: String
     let assets: [ReviewAsset]
+    var productID: String? = nil
     /// Marketplaces that produced nothing, so a silent gap is never mistaken
     /// for a clean result.
     var failures: [GenerationFailureDTO] = []
+    var notice: String? = nil
 
     @State private var selectedMarketplace: String?
+    @State private var reportingAsset: ReviewAsset?
+    @State private var copiedAssetID: String?
 
     private var marketplaces: [String] {
         var seen: [String] = []
@@ -59,7 +69,10 @@ struct ReviewView: View {
         return seen
     }
 
-    private var current: String? { selectedMarketplace ?? marketplaces.first }
+    private var current: String? {
+        if let selectedMarketplace, marketplaces.contains(selectedMarketplace) { return selectedMarketplace }
+        return marketplaces.first
+    }
 
     private var shown: [ReviewAsset] {
         guard let current else { return [] }
@@ -86,10 +99,18 @@ struct ReviewView: View {
                 chips
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        if let notice {
+                            Label(notice, systemImage: "wifi.exclamationmark")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text("AI-generated content. Check product facts and marketplace requirements before publishing.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         if let failure = currentFailure {
                             failureBanner(failure)
                         }
-                        ForEach(shown) { asset in
+                        ForEach(Array(shown.enumerated()), id: \.offset) { _, asset in
                             assetCard(asset)
                         }
                     }
@@ -98,6 +119,11 @@ struct ReviewView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
+        .sheet(item: $reportingAsset) { asset in
+            if let productID {
+                ContentReportView(productID: productID, asset: asset)
+            }
+        }
     }
 
     // MARK: Header
@@ -123,9 +149,16 @@ struct ReviewView: View {
         guard let current else { return nil }
         let name = displayName(current)
         let body = shown
-            .map { "\($0.type.capitalized)\n\($0.content)" }
+            .map { asset in
+                let violations = asset.violations.map { violation in
+                    [violation.message, violation.detail].compactMap { $0 }.joined(separator: " ")
+                }.joined(separator: "\n")
+                return "\(asset.type.capitalized) — \(asset.displayedStatus.rawValue.capitalized)\n\(asset.content)"
+                    + (violations.isEmpty ? "" : "\nChecks to review:\n\(violations)")
+            }
             .joined(separator: "\n\n")
-        return body.isEmpty ? nil : "\(productName) — \(name)\n\n\(body)"
+        let failure = currentFailure.map { "\n\nGeneration incomplete: \($0.reason)" } ?? ""
+        return body.isEmpty ? nil : "\(productName) — \(name)\n\n\(body)\(failure)"
     }
 
     // MARK: Marketplace chips
@@ -149,6 +182,8 @@ struct ReviewView: View {
                         .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(displayName(marketplace)), \(worstStatus(for: marketplace).rawValue)")
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 20)
@@ -163,7 +198,7 @@ struct ReviewView: View {
             HStack {
                 Text(asset.type.capitalized).font(.headline)
                 Spacer()
-                badge(asset.status)
+                badge(asset.displayedStatus)
             }
 
             Text(asset.content)
@@ -171,7 +206,7 @@ struct ReviewView: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            ForEach(asset.violations) { violation in
+            ForEach(Array(asset.violations.enumerated()), id: \.offset) { _, violation in
                 // The rule in plain English, exactly as the engine worded it
                 // (SPEC §10). No codes reach the screen.
                 VStack(alignment: .leading, spacing: 3) {
@@ -188,12 +223,23 @@ struct ReviewView: View {
                 .foregroundStyle(violation.isFailure ? .red : .orange)
             }
 
-            Button {
-                UIPasteboard.general.string = asset.content
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-                    .font(.footnote)
+            HStack {
+                Button {
+                    UIPasteboard.general.string = asset.content
+                    copiedAssetID = asset.id
+                } label: {
+                    Label(copiedAssetID == asset.id ? "Copied" : "Copy", systemImage: "doc.on.doc")
+                }
+                Spacer()
+                if productID != nil {
+                    Button {
+                        reportingAsset = asset
+                    } label: {
+                        Label("Report", systemImage: "flag")
+                    }
+                }
             }
+            .font(.footnote)
         }
         .padding(16)
         .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
@@ -214,7 +260,7 @@ struct ReviewView: View {
 
     private func worstStatus(for marketplace: String) -> ComplianceStatus {
         if failures.contains(where: { $0.marketplace == marketplace }) { return .fail }
-        let statuses = assets.filter { $0.marketplace == marketplace }.map(\.status)
+        let statuses = assets.filter { $0.marketplace == marketplace }.map(\.displayedStatus)
         if statuses.isEmpty { return .fail }
         if statuses.contains(.fail) { return .fail }
         if statuses.contains(.warn) { return .warn }
@@ -246,5 +292,84 @@ struct ReviewView: View {
 
     private func displayName(_ id: String) -> String {
         appEnvironment.rules.marketplaces.first { $0.id == id }?.displayName ?? id
+    }
+}
+
+private struct ContentReportView: View {
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @Environment(\.dismiss) private var dismiss
+    let productID: String
+    let asset: ReviewAsset
+    @State private var reason = ""
+    @State private var isSending = false
+    @State private var errorMessage: String?
+    @State private var didSend = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if didSend {
+                    Label("Report received", systemImage: "checkmark.circle")
+                    Text("Thank you. Your report helps us review generated content.")
+                } else {
+                    Section("What is wrong with this content?") {
+                        TextField("Describe inaccurate, unsafe, or inappropriate content", text: $reason, axis: .vertical)
+                            .lineLimit(4...8)
+                            .disabled(isSending)
+                        Text("The generated asset and your explanation will be sent to ListingForge for review.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let errorMessage {
+                        Text(errorMessage).foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("Report content")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(didSend ? "Done" : "Cancel") { dismiss() }.disabled(isSending)
+                }
+                if !didSend {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(action: send) {
+                            if isSending { ProgressView() } else { Text("Send") }
+                        }
+                        .disabled(isSending || reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || reason.count > 2_000)
+                    }
+                }
+            }
+            .interactiveDismissDisabled(isSending)
+        }
+    }
+
+    private func send() {
+        guard !isSending, let token = appEnvironment.auth.token else { return }
+        isSending = true
+        errorMessage = nil
+        let body = ContentReportRequest(assetId: asset.id,
+                                        reason: reason.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        content: asset.content, marketplace: asset.marketplace, type: asset.type)
+        Task {
+            defer { isSending = false }
+            do {
+                let _: EmptyResponse = try await appEnvironment.api.post(
+                    "api/products/\(productID)/report", body: body, token: token)
+                guard appEnvironment.auth.token == token else { return }
+                didSend = true
+            } catch {
+                guard appEnvironment.auth.token == token else { return }
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private struct ContentReportRequest: Encodable {
+        let assetId: String
+        let reason: String
+        let content: String
+        let marketplace: String
+        let type: String
     }
 }

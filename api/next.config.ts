@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   /**
    * Keep the OpenTelemetry stack out of the bundler.
    *
@@ -9,7 +10,9 @@ const nextConfig: NextConfig = {
    * the whole app rather than just tracing. Listing them leaves them as runtime
    * requires.
    */
+  outputFileTracingIncludes: { "/api/**/*": ["./config/credits.json", "./config/apple/*.cer"] },
   serverExternalPackages: [
+    "@apple/app-store-server-library",
     "@opentelemetry/sdk-trace-node",
     "@opentelemetry/api",
     "@langfuse/otel",

@@ -25,7 +25,7 @@ import Vision
 // MARK: - Quality judgement (pure)
 
 /// What the mask looks like, measured from its pixels.
-struct CutoutQuality: Equatable {
+struct CutoutQuality: Equatable, Codable {
     /// Share of the frame the subject covers, 0...1.
     let coverage: Double
     /// Share of the mask that is partially transparent rather than clearly in
@@ -34,7 +34,7 @@ struct CutoutQuality: Equatable {
     let softEdgeFraction: Double
 }
 
-enum CutoutVerdict: Equatable {
+enum CutoutVerdict: String, Equatable, Codable {
     case usable
     case noSubjectFound
     case subjectTooSmall
@@ -82,7 +82,7 @@ enum CutoutAssessment {
 
 // MARK: - Result
 
-struct ProductCutout {
+struct ProductCutout: Codable {
     /// PNG with alpha — this is what is uploaded (SPEC §4.1).
     let pngData: Data
     let quality: CutoutQuality
@@ -125,7 +125,7 @@ enum ProductSegmenter {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(width, height)
+            kCGImageSourceThumbnailMaxPixelSize: min(max(width, height), 1600)
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
             throw CutoutError.invalidPhoto
@@ -177,12 +177,13 @@ enum ProductSegmenter {
             } catch { throw CutoutError.segmentationFailed(error) }
         }()
 
+        let encoded = try png(from: maskedBuffer)
         return ProductCutout(
-            pngData: try png(from: maskedBuffer),
+            pngData: encoded.data,
             quality: quality,
             verdict: verdict,
-            widthPx: image.width,
-            heightPx: image.height
+            widthPx: encoded.width,
+            heightPx: encoded.height
         )
     }
 
@@ -236,24 +237,28 @@ enum ProductSegmenter {
         return CutoutQuality(coverage: coverage, softEdgeFraction: min(1, softEdgeFraction))
     }
 
-    private static func png(from buffer: CVPixelBuffer) throws -> Data {
-        guard let image = makeCGImage(from: buffer) else { throw CutoutError.encodingFailed }
-
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            data, UTType.png.identifier as CFString, 1, nil
-        ) else { throw CutoutError.encodingFailed }
-
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { throw CutoutError.encodingFailed }
-        return data as Data
+    private static func png(from buffer: CVPixelBuffer) throws -> (data: Data, width: Int, height: Int) {
+        let source = CIImage(cvPixelBuffer: buffer)
+        let context = CIContext(options: [.useSoftwareRenderer: false])
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        var scale = min(1, 1600 / max(source.extent.width, source.extent.height))
+        // Dense textured products may exceed 4 MiB even at 1600px. Reduce pixel
+        // dimensions on-device while preserving alpha; never flatten the cutout.
+        for _ in 0..<10 {
+            let scaled = source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            guard let image = context.createCGImage(scaled, from: scaled.extent.integral,
+                format: .RGBA8, colorSpace: colorSpace) else { throw CutoutError.encodingFailed }
+            let data = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(
+                data, UTType.png.identifier as CFString, 1, nil
+            ) else { throw CutoutError.encodingFailed }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { throw CutoutError.encodingFailed }
+            if data.length <= 4 * 1024 * 1024 {
+                return (data as Data, image.width, image.height)
+            }
+            scale *= 0.8
+        }
+        throw CutoutError.encodingFailed
     }
-}
-
-/// Bridges the masked pixel buffer to a CGImage, keeping the alpha channel —
-/// without it the cutout would be composited onto a black rectangle.
-private func makeCGImage(from buffer: CVPixelBuffer) -> CGImage? {
-    let image = CIImage(cvPixelBuffer: buffer)
-    return CIContext(options: [.useSoftwareRenderer: false])
-        .createCGImage(image, from: image.extent)
 }

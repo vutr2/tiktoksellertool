@@ -159,6 +159,76 @@ contains zero module-resolution errors.
 Worth carrying forward: **a green unit suite says nothing about whether the app
 boots.** Hit a real endpoint after touching anything the bundler sees.
 
+
+## Claude — findings 3/7/8 (2026-09-14)
+
+Validation: **131 iOS tests in 19 suites pass**, **86 API tests pass**, typecheck
+clean, Debug build clean.
+
+### 🔴 Account deletion is broken, and the cause is a migration that was never written
+
+`account-deletion.ts` calls `db.rpc("begin_account_deletion")`. That function
+exists **nowhere** — no migration file in the repo, and `POST /rest/v1/rpc/
+begin_account_deletion` returns 404 on the live project. Every deletion attempt
+fails with 500 "Could not start account deletion".
+
+Reproduced end to end: created an account with a product and a stored cutout,
+called delete → **500**, and afterwards the photo was still in storage, the
+product row still present, the workspace still named "My workspace", and the old
+session still authorised (`GET /api/credits` → 200).
+
+In-app deletion is mandatory for review (SPEC §5.3), so this blocks submission.
+
+`api/supabase/migrations/0002_account_deletion.sql` is now written and reviewable.
+It adds **no tables and no columns** — only a function that locks the account's
+workspaces and tombstones the user using the existing `deleted_at`, so
+`verifyAccount` rejects further requests while the slower cleanup runs. It is
+idempotent, so a retried deletion records one deletion rather than two.
+
+**It has NOT been applied.** SPEC §0 requires asking before a schema change;
+deletion stays broken until the owner approves running it.
+
+### [#3] Account isolation was half-landed and did not compile
+
+`HEAD` did not build: `AppEnvironment` called `products.invalidate()`,
+`generation.invalidate()` and `ProductStore(api:cacheDirectory:)`, none of which
+existed. Seven compile errors, committed.
+
+Implemented what the call sites required, rather than deleting them:
+- `OfflineCache` — a per-account JSON cache inside the account's own directory,
+  so one seller's listings cannot be read by the next person on the device.
+  Every read is best-effort; SPEC §9 keeps the server as the source of truth.
+- `invalidate()` on both stores: clears state **and** bumps the request token, so
+  a response in flight for the previous account cannot land on the new one.
+- `ProductStore` restores its list from disk at init and re-caches on write;
+  `GenerationStore` serves a cached listing when the network fails, because work
+  the seller paid for should still open offline.
+
+### [#8] A new account now has credits
+
+`ensureOrg` grants 100 credits once, at workspace creation — SPEC §6's own trial
+figure, not an invented business model. Granting on every sign-in would be free
+credits for anyone who signs out and back in.
+
+Verified live: a brand-new account reports `{"balance":100}` with no manual
+grant. The StoreKit purchase path remains M5.
+
+### Two test defects fixed
+
+- The e2e sign-in UI test probed `/api/health`, which never touches Supabase. A
+  backend running without database credentials answered 200 and the test then
+  **failed instead of skipping**. It now probes the sign-in route itself.
+- `products.test.ts` used a 9-byte stub PNG. Validation was since tightened to
+  require complete image data — correctly, since a truncated PNG passes a
+  magic-number check and fails expensively later. The fixture is now a real
+  2x2 RGBA PNG with correct CRCs.
+
+### Still open from the readiness review
+
+`[#1]` production URL, `[#4]` privacy/support URLs, `[#5]` AI consent is written
+(`AIConsent.swift`) but **not wired to any screen**, `[#7]` Apple token
+revocation, `[#11]` three AVFoundation Sendable warnings.
+
 ## Current slice
 
 - `CaptureView` sends camera HEIF data and PhotosPicker imports through the same on-device Vision pipeline. Image orientation is applied before the centered square crop.
@@ -369,3 +439,11 @@ that has a host but a path not starting with `/` is invalid and `.url` returns
 **nil silently**. The first fix therefore appeared to work — the fallback
 produced the right path — while quietly dropping the query. `APIClientURLTests`
 pins both the path and the query now.
+
+## Codex implementation update — 14 September 2026
+
+The earlier review-only notes above are historical. See [SUBMISSION_READINESS.md](SUBMISSION_READINESS.md) for current changes, validation and remaining submission blockers. Generation and billing migrations were explicitly approved for **local implementation and testing only**. No production migration or App Store upload has occurred.
+
+Do not restore the old account-creation 100-credit grant: trial credits now come from verified Apple introductory offers. Do not finish a StoreKit transaction before server acknowledgment, or accept unsigned Xcode JWS payloads on the real backend. The ledger is append-only and generation output/debit are atomic. All captured angles now upload with resumable draft identity; cutouts and uncertain generation IDs survive relaunch.
+
+Pending owner decision: paid credit expiry conflicts with current Apple §3.1.1 wording. The proposal is to preserve purchased credits, with subscription feature access still expiring normally. Current migration retains SPEC expiry pending that answer. Real production policy/support/API/terms URLs and Apple Sandbox/Release validation are still required.

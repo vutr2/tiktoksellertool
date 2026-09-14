@@ -31,9 +31,12 @@ struct CaptureView: View {
     @State private var showingDetails = false
     /// The listing just generated, shown in Review (design step 4).
     @State private var generatedListing: GenerateResultDTO?
+    @State private var pendingListing: GenerateResultDTO?
 
     private var rules: RulesStore { appEnvironment.rules }
-    private var hasRoomForPhoto: Bool { cutouts.count < CaptureSeries.defaultShotCount }
+    private var hasRoomForPhoto: Bool {
+        !appEnvironment.captureDraft.draft.uploadStarted && cutouts.count < CaptureSeries.defaultShotCount
+    }
 
     enum FlashMode: String, CaseIterable {
         case auto = "Auto", on = "On", off = "Off"
@@ -66,6 +69,8 @@ struct CaptureView: View {
         }
         .preferredColorScheme(.dark)
         .task {
+            cutouts = appEnvironment.captureDraft.draft.cutouts
+            latestCutout = cutouts.last
             async let loadingRules: Void = rules.load()
             await camera.start()
             await loadingRules
@@ -82,17 +87,26 @@ struct CaptureView: View {
             ReviewView(
                 productName: listing.facts.suggestedName,
                 assets: listing.assets.map(ReviewAsset.init),
+                productID: listing.productId,
                 failures: listing.failures
             )
         }
-        .sheet(isPresented: $showingDetails) {
+        .sheet(isPresented: $showingDetails, onDismiss: {
+            if let listing = pendingListing {
+                pendingListing = nil
+                generatedListing = listing
+                appEnvironment.captureDraft.reset()
+                cutouts.removeAll()
+                latestCutout = nil
+                camera.resetSeries()
+            }
+        }) {
             ProductDetailsView(
                 cutouts: cutouts,
                 onCreated: { _ in
                     // The product now exists on the server, so the in-memory
                     // series is finished with. Clearing it also drops the
                     // hardware exposure lock for the next product.
-                    cutouts.removeAll()
                     // resetSeries() also releases the hardware exposure and
                     // white-balance lock; series.reset() only clears the state
                     // machine, leaving the next product metered for the last one.
@@ -101,7 +115,8 @@ struct CaptureView: View {
                 onGenerated: { result in
                     // Discarding this was the gap Codex flagged: credits are
                     // charged, so the seller must be handed the listing.
-                    generatedListing = result
+                    pendingListing = result
+                    showingDetails = false
                 }
             )
         }
@@ -130,6 +145,7 @@ struct CaptureView: View {
                     .foregroundStyle(.black)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .disabled(isProcessing)
             .padding(.horizontal, 28)
             .padding(.top, 16)
         }
@@ -143,6 +159,7 @@ struct CaptureView: View {
                 camera.resetSeries()
                 cutouts.removeAll()
                 latestCutout = nil
+                appEnvironment.captureDraft.reset()
             }
                 .foregroundStyle(.white)
                 .disabled(isProcessing)
@@ -373,6 +390,7 @@ struct CaptureView: View {
         // Keep usable angles for the upcoming Product details step in M3.
         if !cutout.verdict.needsManualRefinement {
             cutouts.append(cutout)
+            appEnvironment.captureDraft.draft.cutouts = cutouts
         }
         showingCutout = true
     }

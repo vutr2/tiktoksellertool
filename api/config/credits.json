@@ -1,0 +1,13 @@
+{
+  "costs": { "titleOrDescription": 1, "adScript": 2, "imageGeneration": 5, "marketplaceConversion": 0 },
+  "trialCredits": 100,
+  "products": {
+    "starter_monthly": { "tier": "starter", "credits": 400, "months": 1 },
+    "starter_annual": { "tier": "starter", "credits": 400, "months": 12 },
+    "pro_monthly": { "tier": "pro", "credits": 1100, "months": 1 },
+    "pro_annual": { "tier": "pro", "credits": 1100, "months": 12 },
+    "scale_monthly": { "tier": "scale", "credits": 2800, "months": 1 },
+    "scale_annual": { "tier": "scale", "credits": 2800, "months": 12 },
+    "topup_300": { "tier": null, "credits": 300, "months": 0 }
+  }
+}

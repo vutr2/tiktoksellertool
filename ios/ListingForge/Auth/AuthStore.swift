@@ -21,6 +21,10 @@ final class AuthStore {
     private(set) var state: State = .loading
     private(set) var isBusy = false
     var errorMessage: String?
+    var onSessionChanged: ((UserDTO?) -> Void)?
+    var onAccountDeleted: (() throws -> Void)?
+    private(set) var needsAppleDeletionAuthorization = false
+    var deletionNotice: String?
 
     private let api: APIClient
     private let keychain = KeychainStore()
@@ -28,6 +32,7 @@ final class AuthStore {
 
     private var session: Session? {
         didSet {
+            onSessionChanged?(session?.user)
             if let session {
                 if let data = try? JSONEncoder().encode(session) {
                     keychain.set(data, for: sessionKey)
@@ -86,17 +91,40 @@ final class AuthStore {
         session = nil
     }
 
-    func deleteAccount() async {
-        guard let token else { return }
-        let succeeded = await perform {
-            let _: EmptyResponse = try await self.api.post("api/account/delete", token: token)
+    func deleteAccount(identityToken: String? = nil, authorizationCode: String? = nil,
+                       skipAppleRevocation: Bool = false) async {
+        guard let token, !isBusy else { return }
+        struct Request: Encodable {
+            let identityToken: String?
+            let authorizationCode: String?
+            let skipAppleRevocation: Bool
         }
-        if succeeded { session = nil }
+        isBusy = true
+        errorMessage = nil
+        needsAppleDeletionAuthorization = false
+        defer { isBusy = false }
+        do {
+            let _: EmptyResponse = try await api.post("api/account/delete", body: Request(
+                identityToken: identityToken, authorizationCode: authorizationCode,
+                skipAppleRevocation: skipAppleRevocation), token: token)
+            guard self.token == token else { return }
+            try onAccountDeleted?()
+            deletionNotice = skipAppleRevocation
+                ? "Your account was deleted. To disconnect Apple, open Settings → your Apple Account → Sign in with Apple → ListingForge → Stop Using Apple ID."
+                : "Your account was deleted."
+            session = nil
+        } catch let APIError.http(status, message) where status == 428 {
+            needsAppleDeletionAuthorization = true
+            errorMessage = message
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     /// Runs a throwing async task with shared busy/error handling.
     @discardableResult
     private func perform(_ work: @escaping () async throws -> Void) async -> Bool {
+        guard !isBusy else { return false }
         isBusy = true
         errorMessage = nil
         defer { isBusy = false }

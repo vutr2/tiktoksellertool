@@ -5,6 +5,7 @@
 //  Switches between the auth flow and the main app based on session state.
 //
 
+import SwiftData
 import SwiftUI
 
 struct RootView: View {

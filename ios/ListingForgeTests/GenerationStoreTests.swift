@@ -202,4 +202,36 @@ struct GenerationStoreTests {
         #expect(store.balance == nil)
         #expect(store.errorMessage == nil)
     }
+    @Test("A lost generation response recovers the committed result without a second charge")
+    func recoverCommittedGeneration() async throws {
+        let server = StubbedServer(.transportFailure(URLError(.networkConnectionLost)), .json(generated))
+        let store = GenerationStore(api: server.client)
+        let result = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        #expect(result?.creditsCharged == 6)
+        #expect(server.requests.map(\.method) == ["POST", "GET"])
+        let requestID = try #require(server.requests.first?.jsonObject?["requestId"] as? String)
+        #expect(server.requests.last?.url?.query == "requestId=" + requestID)
+        #expect(store.pendingRequest(productID: "p1") == nil)
+    }
+
+    @Test("An uncertain charge keeps its request ID through relaunch and rejects changed inputs")
+    func durableGenerationRetry() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let firstServer = StubbedServer(.transportFailure(URLError(.timedOut)),
+            .json(#"{"error":"still running"}"#, status: 409))
+        let first = GenerationStore(api: firstServer.client, cacheDirectory: directory)
+        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        let pending = try #require(first.pendingRequest(productID: "p1"))
+        let secondServer = StubbedServer(.json(generated))
+        let relaunched = GenerationStore(api: secondServer.client, cacheDirectory: directory)
+        #expect(relaunched.pendingRequest(productID: "p1")?.requestId == pending.requestId)
+        let changed = await relaunched.generate(productID: "p1", marketplaces: ["etsy"], scriptCount: 0, token: "jwt")
+        #expect(changed == nil)
+        #expect(secondServer.requests.isEmpty)
+        _ = await relaunched.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        #expect(secondServer.lastRequest?.jsonObject?["requestId"] as? String == pending.requestId.uuidString)
+        #expect(relaunched.pendingRequest(productID: "p1") == nil)
+    }
+
 }

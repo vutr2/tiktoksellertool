@@ -1,16 +1,4 @@
 import { supabaseAdmin } from "./supabase";
-import { appendEntry } from "./credits.ts";
-
-/**
- * Credits a brand-new workspace starts with.
- *
- * SPEC §6: "7-day free trial with 100 credits, configured as an introductory
- * offer." The StoreKit introductory offer itself is M5; until then this is what
- * lets a fresh account use the product at all, instead of meeting a 402 on its
- * first generation.
- */
-const TRIAL_CREDITS = 100;
-
 export interface AppUser {
   id: string;
   email: string | null;
@@ -47,14 +35,17 @@ export async function upsertUserWithOrg(input: UpsertInput): Promise<UserWithOrg
     const patch: Record<string, unknown> = {};
     if (input.email && !user.email) patch.email = input.email;
     if (input.appleUserId) patch.apple_user_id = input.appleUserId;
-    const { data, error } = await db
-      .from("users")
-      .update(patch)
-      .eq("id", user.id)
-      .select("id, email")
-      .single();
-    if (error) throw new Error(error.message);
-    user = data as AppUser;
+    if (Object.keys(patch).length > 0) {
+      const { data, error } = await db
+        .from("users")
+        .update(patch)
+        .eq("id", user.id)
+        .is("deleted_at", null)
+        .select("id, email")
+        .single();
+      if (error) throw new Error(error.message);
+      user = data as AppUser;
+    }
   }
 
   const orgId = await ensureOrg(user.id, input.fullName ?? null);
@@ -88,12 +79,13 @@ async function findUser(appleUserId?: string | null, email?: string | null): Pro
 
 async function ensureOrg(ownerUserId: string, fullName: string | null): Promise<string> {
   const db = supabaseAdmin();
-  const { data: existing } = await db
+  const { data: existing, error: lookupError } = await db
     .from("organizations")
     .select("id")
     .eq("owner_user_id", ownerUserId)
     .limit(1)
     .maybeSingle();
+  if (lookupError) throw new Error("Could not load your workspace.");
   if (existing?.id) return existing.id as string;
 
   const name = fullName ? `${fullName}'s workspace` : "My workspace";
@@ -106,15 +98,6 @@ async function ensureOrg(ownerUserId: string, fullName: string | null): Promise<
 
   const orgId = data.id as string;
 
-  // Granted once, here, because this branch only runs when the workspace is
-  // created. A grant on every sign-in would be free credits for anyone who
-  // signs out and back in.
-  try {
-    await appendEntry(orgId, TRIAL_CREDITS, "subscription.grant");
-  } catch {
-    // A missing grant must not block sign-in; the seller meets a clear
-    // "not enough credits" message instead of a failed login.
-  }
-
+  // Trial credits now come exclusively from verified Apple introductory offers.
   return orgId;
 }

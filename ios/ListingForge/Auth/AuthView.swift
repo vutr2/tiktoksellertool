@@ -23,6 +23,9 @@ struct AuthView: View {
                 appleButton
                 dividerRow
                 emailSection
+                if let url = AppConfig.privacyPolicyURL {
+                    Link("Privacy Policy", destination: url).font(.footnote)
+                }
                 if let message = auth.errorMessage {
                     Text(message)
                         .font(.footnote)
@@ -35,6 +38,12 @@ struct AuthView: View {
             .navigationTitle("ListingForge")
             .disabled(auth.isBusy)
             .overlay { if auth.isBusy { ProgressView() } }
+            .alert("Account deleted", isPresented: Binding(
+                get: { auth.deletionNotice != nil },
+                set: { if !$0 { auth.deletionNotice = nil } }
+            )) {
+                Button("OK") { auth.deletionNotice = nil }
+            } message: { Text(auth.deletionNotice ?? "") }
         }
     }
 

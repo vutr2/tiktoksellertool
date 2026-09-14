@@ -5,6 +5,7 @@
 //  Mirrors api/src/lib/generate.ts and the rules engine's Violation shape.
 //
 
+import CryptoKit
 import Foundation
 
 /// One rule a generated asset broke. `message` is plain English and is shown
@@ -16,7 +17,7 @@ struct ViolationDTO: Codable, Hashable, Identifiable {
     let message: String
     let detail: String?
 
-    var id: String { code + field }
+    var id: String { StableAssetIdentity.make([code, field, severity, message, detail ?? ""]) }
     var isFailure: Bool { severity == "fail" }
 }
 
@@ -26,13 +27,29 @@ enum ComplianceStatus: String, Codable {
 }
 
 struct GeneratedAssetDTO: Codable, Hashable, Identifiable {
+    let serverID: String?
     let type: String
     let marketplace: String
     let content: String
     let status: ComplianceStatus
     let violations: [ViolationDTO]
 
-    var id: String { marketplace + type + content.prefix(24) }
+    var id: String { serverID ?? StableAssetIdentity.make([marketplace, type, content]) }
+
+    enum CodingKeys: String, CodingKey {
+        case serverID = "id"
+        case type, marketplace, content, status, violations
+    }
+
+    init(type: String, marketplace: String, content: String, status: ComplianceStatus,
+         violations: [ViolationDTO], serverID: String? = nil) {
+        self.serverID = serverID
+        self.type = type
+        self.marketplace = marketplace
+        self.content = content
+        self.status = status
+        self.violations = violations
+    }
 }
 
 struct ProductFactsDTO: Codable, Hashable {
@@ -52,6 +69,7 @@ struct GenerationFailureDTO: Codable, Hashable {
 struct GenerateRequest: Encodable {
     let marketplaces: [String]
     let scriptCount: Int
+    var requestId: UUID = UUID()
 }
 
 struct GenerateResultDTO: Codable, Identifiable {
@@ -98,7 +116,45 @@ struct ListingProductDTO: Codable, Hashable {
     let category: String?
 }
 
-struct ListingAssetsDTO: Decodable {
+struct ListingAssetsDTO: Codable {
     let product: ListingProductDTO
     let assets: [StoredAssetDTO]
+    let failures: [GenerationFailureDTO]
+
+    init(product: ListingProductDTO, assets: [StoredAssetDTO], failures: [GenerationFailureDTO] = []) {
+        self.product = product
+        self.assets = assets
+        self.failures = failures
+    }
+
+    private enum CodingKeys: String, CodingKey { case product, assets, failures }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        product = try values.decode(ListingProductDTO.self, forKey: .product)
+        assets = try values.decode([StoredAssetDTO].self, forKey: .assets)
+        failures = try values.decodeIfPresent([GenerationFailureDTO].self, forKey: .failures) ?? []
+    }
+
+    static func generated(_ result: GenerateResultDTO, productName: String) -> Self {
+        Self(
+            product: ListingProductDTO(id: result.productId, name: productName,
+                                       category: result.facts.suggestedCategory),
+            assets: result.assets.enumerated().map { index, asset in
+                StoredAssetDTO(id: asset.serverID ?? "\(asset.id)-\(index)", type: asset.type,
+                               marketplace: asset.marketplace, content: asset.content,
+                               status: asset.status.rawValue, violations: asset.violations)
+            },
+            failures: result.failures
+        )
+    }
+}
+
+/// Stable across app launches, and sensitive to the entire asset rather than
+/// only its opening sentence. Encoding the array also avoids delimiter clashes.
+enum StableAssetIdentity {
+    static func make(_ components: [String]) -> String {
+        let data = (try? JSONEncoder().encode(components)) ?? Data()
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
 }

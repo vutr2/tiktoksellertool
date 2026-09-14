@@ -98,4 +98,57 @@ struct ReviewTests {
         #expect(listing == nil)
         #expect(store.errorMessage == "That product could not be found.")
     }
+
+    @Test("A failed rule cannot be rendered as a green pass")
+    func failedViolationOverridesPassBadge() {
+        let asset = ReviewAsset(StoredAssetDTO(
+            id: "a1", type: "title", marketplace: "amazon", content: "Unsafe claim", status: "pass",
+            violations: [ViolationDTO(code: "claim", severity: "fail", field: "title",
+                                      message: "Remove the unverified claim.", detail: nil)]))
+        #expect(asset.displayedStatus == .fail)
+    }
+
+    @Test("Offline listing snapshots keep failed marketplaces and full rule explanations")
+    func offlineComplianceSnapshot() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let decoded = try JSONDecoder().decode(ListingAssetsDTO.self, from: Data(stored.utf8))
+        let listing = ListingAssetsDTO(product: decoded.product, assets: decoded.assets,
+                                       failures: [GenerationFailureDTO(marketplace: "etsy", reason: "No usable listing was generated.")])
+        let cache = ListingSnapshotCache(directory: directory)
+        try cache.save(listing)
+
+        // Reopen through a new helper to prove the warning comes from disk.
+        let saved = try ListingSnapshotCache(directory: directory).load(productID: "p1")
+        let reopened = try #require(saved)
+        #expect(reopened.assets == listing.assets)
+        #expect(reopened.failures == listing.failures)
+        #expect(reopened.assets[1].violations.first?.detail == "Found: best price.")
+        #expect(reopened.assets[1].compliance == .warn)
+    }
+
+    @Test("Credit-funded listings remain usable when their refresh loses connectivity")
+    func offlineRefreshPreservesListingAndCompliance() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let listing = try JSONDecoder().decode(ListingAssetsDTO.self, from: Data(stored.utf8))
+        try ListingSnapshotCache(directory: directory).save(listing)
+        let server = StubbedServer(.json(#"{"error":"Temporarily unavailable"}"#, status: 503))
+        let store = GenerationStore(api: server.client, cacheDirectory: directory)
+        let reopened = try #require(await store.loadAssets(productID: "p1", token: "jwt"))
+        #expect(reopened.assets == listing.assets)
+        #expect(store.listingLoadWarning != nil)
+        #expect(store.errorMessage == nil)
+    }
+
+    @Test("A server denial never revives a cached credit-funded listing")
+    func deniedListingDoesNotFallBack() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let listing = try JSONDecoder().decode(ListingAssetsDTO.self, from: Data(stored.utf8))
+        try ListingSnapshotCache(directory: directory).save(listing)
+        let server = StubbedServer(.json(#"{"error":"That product could not be found."}"#, status: 404))
+        let store = GenerationStore(api: server.client, cacheDirectory: directory)
+        #expect(await store.loadAssets(productID: "p1", token: "jwt") == nil)
+    }
 }

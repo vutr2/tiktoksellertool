@@ -1,16 +1,50 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { deflateSync } from "node:zlib";
 import {
   MAX_CUTOUT_BYTES,
   cutoutPath,
   validateCreateProduct,
 } from "../src/lib/products.ts";
 
-/** Minimal valid PNG: signature plus a byte of payload. */
-const pngBytes = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.from([0x00]),
-]);
+/**
+ * A real 2x2 RGBA PNG — signature, IHDR, IDAT and IEND with correct CRCs.
+ *
+ * A signature-plus-padding stub is not enough: validation checks the image is
+ * complete, because a truncated PNG passes a magic-number test and then fails
+ * further down the pipeline where it is far more expensive to diagnose.
+ */
+function makePng(): Buffer {
+  const table: number[] = [];
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    let crc = 0xffffffff;
+    for (const b of body) crc = table[(crc ^ b) & 0xff] ^ (crc >>> 8);
+    const crcBuf = Buffer.alloc(4);
+    crcBuf.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+    return Buffer.concat([len, body, crcBuf]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(2, 0);
+  ihdr.writeUInt32BE(2, 4);
+  ihdr[8] = 8;  // bit depth
+  ihdr[9] = 6;  // RGBA — the alpha channel is the point (SPEC §4.1)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(Buffer.alloc((2 * 4 + 1) * 2))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const pngBytes = makePng();
 const pngBase64 = pngBytes.toString("base64");
 
 const ok = (input: Parameters<typeof validateCreateProduct>[0]) => {
