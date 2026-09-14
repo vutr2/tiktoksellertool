@@ -199,15 +199,40 @@ def main():
                 {"start": "2026-03-01T00:00:00Z", "end": "2026-04-01T00:00:00Z", "amount": 400, "kind": "plan"}]
             assert apply(annual_org, annual, "2026-01-15T00:00:00Z")["balance"] == 400
             assert apply(annual_org, purchase(annual_user, "topup", 300), "2026-01-15T00:00:00Z")["balance"] == 700
-            # March adds its own 400. February is skipped because a missed month
-            # does not accumulate, and January's 400 stays: since migration 0005
-            # paid credits carry no expiry (Apple Guideline 3.1.1).
-            assert apply(annual_org, annual, "2026-03-15T00:00:00Z")["balance"] == 1100
-            assert sql(f"select count(*) from credit_grants where org_id='{annual_org}' and kind='plan'") == "2"
-            # Nothing expires after the schedule ends; the balance simply stops growing.
-            assert apply(annual_org, annual, "2026-04-15T00:00:00Z")["balance"] == 1100
+            # Returning in March must grant February too, without advancing future months.
+            assert apply(annual_org, annual, "2026-03-15T00:00:00Z")["balance"] == 1500
+            assert sql(f"select count(*) from credit_grants where org_id='{annual_org}' and kind='plan'") == "3"
+            assert apply(annual_org, annual, "2026-04-15T00:00:00Z")["balance"] == 1500
             assert sql(f"select count(*) from credit_ledger where org_id='{annual_org}' and reason='subscription.expiry'") == "0"
-            print("PASS: annual grants skip missed months; paid credits never expire")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                replies = list(pool.map(lambda _: apply(annual_org, annual, "2026-04-15T00:00:00Z"), range(2)))
+            assert all(reply["balance"] == 1500 for reply in replies)
+
+            # First reconciliation after the subscription ends still delivers every paid period.
+            late_user, late_org, _ = account(0)
+            late = dict(annual, transactionId=str(uuid.uuid4()), originalTransactionId=str(uuid.uuid4()),
+                        appAccountToken=late_user, expiresDate="2026-04-01T00:00:00Z")
+            assert apply(late_org, late, "2026-04-15T00:00:00Z")["balance"] == 1200
+            assert sql(f"select status from subscriptions where org_id='{late_org}'") == "expired"
+            late["revocationDate"] = "2026-04-16T00:00:00Z"
+            late["signedDate"] = 200
+            assert apply(late_org, late, "2026-04-16T00:00:00Z")["balance"] == 0
+            assert apply(late_org, late, "2026-05-16T00:00:00Z")["balance"] == 0
+
+            # A purchase refunded before reconciliation never creates catch-up credits.
+            refunded_user, refunded_org, _ = account(0)
+            refunded = dict(late, transactionId=str(uuid.uuid4()), originalTransactionId=str(uuid.uuid4()),
+                            appAccountToken=refunded_user)
+            assert apply(refunded_org, refunded, "2026-05-16T00:00:00Z")["balance"] == 0
+            assert sql(f"select count(*) from credit_grants where org_id='{refunded_org}'") == "0"
+
+            # Free trials retain their deadline and cannot be claimed retroactively.
+            expired_user, expired_org, _ = account(0)
+            expired_trial = purchase(expired_user, "trial", 100)
+            expired_trial["expiresDate"] = "2026-01-08T00:00:00Z"
+            expired_trial["schedule"][0]["end"] = "2026-01-08T00:00:00Z"
+            assert apply(expired_org, expired_trial, "2026-02-01T00:00:00Z")["balance"] == 0
+            print("PASS: missed paid periods are recovered exactly once, including after expiry; refunds and trial deadlines remain enforced")
 
             for signature in ["begin_generation(uuid,uuid,uuid,text,jsonb,integer)",
                               "complete_generation(uuid,uuid,jsonb,jsonb,jsonb,integer)",

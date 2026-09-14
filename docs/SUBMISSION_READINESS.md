@@ -48,9 +48,13 @@ iOS: the latest ordinary suite passed 134 tests with 0 failures and 2 explicit s
    change. SPEC §6 updated to match.
 
    Verified against a disposable PostgreSQL cluster with every migration
-   applied: an annual plan now reaches 1100 credits (Jan 400 + top-up 300 +
-   Mar 400) and stays there, with zero `subscription.expiry` ledger rows.
-   **Migration 0005 has not been applied to the live Supabase project.**
+   applied: migration `0006_recover_missed_paid_credit_periods.sql` additionally
+   recovers every started paid period, including months when the app was unused.
+   The annual fixture reaches 1500 credits (Jan/Feb/Mar 400 each + top-up 300)
+   and stays there, with zero paid-credit expiry rows. Tests cover concurrent
+   replay, first reconciliation after subscription expiry, refunds, and expired
+   trials. Future periods are not granted early; feature access still expires.
+   **Migrations 0005/0006 have not been applied to the live Supabase project.**
 2. Supply real public HTTPS backend, Privacy Policy, Terms and support URLs. Complete matching App Privacy answers, retention policy and support contact. Release validation deliberately fails while these are absent.
 3. Configure App Store Connect products/group levels, introductory offers and agreements; provide numeric APP_STORE_APP_ID and verified bundle/environment settings. Configure V2 notifications at `/api/billing/notifications`. Same-tier monthly/annual products belong at the same group level; do not advertise bulk workflows that are not implemented.
 4. Validate real Apple Sandbox/TestFlight purchase, interrupted purchase, pending approval, restore after reinstall/account switch, renewal, refund and notifications against a staging database. Local StoreKit signatures are deliberately rejected by the real server. Do not enable Billing Grace Period until its entitlement behavior is implemented and tested; the current backend uses the verified transaction expiration.
@@ -63,3 +67,11 @@ iOS: the latest ordinary suite passed 134 tests with 0 failures and 2 explicit s
 Reports are stored in `products.attributes.contentReports` after ownership validation. No Slack/email is sent automatically. The operator must establish a review workflow and response policy before advertising moderation/support turnaround. Account deletion also deletes those product-bound reports. Historical provider traces that lack recorded IDs require operator/provider cleanup; do not promise automatic deletion for them.
 
 Billing server configuration is documented in `api/.env.example`. Public Apple roots are bundled under `api/config/apple`; no private Apple signing key is included. Native SwiftUI purchase controls call StoreKit directly so the app controls the server-acknowledgment/finish ordering.
+
+## Follow-up validation — 15 September 2026
+
+The missing-month regression failed against 0005 before the fix and passed with
+0006. All 10 local database test groups, API typecheck and 91 API tests passed.
+No Swift source was changed in this fix. StoreKit testing remains blocked on the
+available iOS 26.5 runtime; the listed physical iPhone is currently unavailable.
+The real production API/privacy/terms/support URLs are still required.

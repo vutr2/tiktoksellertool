@@ -524,3 +524,16 @@ The earlier review-only notes above are historical. See [SUBMISSION_READINESS.md
 Do not restore the old account-creation 100-credit grant: trial credits now come from verified Apple introductory offers. Do not finish a StoreKit transaction before server acknowledgment, or accept unsigned Xcode JWS payloads on the real backend. The ledger is append-only and generation output/debit are atomic. All captured angles now upload with resumable draft identity; cutouts and uncertain generation IDs survive relaunch.
 
 Pending owner decision: paid credit expiry conflicts with current Apple §3.1.1 wording. The proposal is to preserve purchased credits, with subscription feature access still expiring normally. Current migration retains SPEC expiry pending that answer. Real production policy/support/API/terms URLs and Apple Sandbox/Release validation are still required.
+
+## Codex — recover missed paid periods (2026-09-15)
+
+Migration 0006 fixes a remaining 0005 bug: paid annual months were silently
+skipped if reconciliation occurred after their period ended. Every started paid
+period is now delivered exactly once, even after subscription expiration.
+Expired free trials and revoked purchases remain excluded; future periods stay
+scheduled. Feature access still comes from the subscription, not credit balance.
+
+Regression reproduced before the fix. All 10 local PostgreSQL groups, 91 API
+tests and typecheck pass. No production migration applied. StoreKit still needs
+a working alternate runtime or an available physical device, plus real Apple
+Sandbox validation. Production URLs remain missing.
