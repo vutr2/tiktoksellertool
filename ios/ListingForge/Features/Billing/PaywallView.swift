@@ -14,7 +14,7 @@ struct PaywallView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Create listings with ListingForge")
+                        Text("Create listings with Listing Force")
                             .font(.title2.bold())
                         Text("Starter includes TikTok Shop. Pro and Scale include Amazon, eBay and Etsy. Review generated content before publishing.")
                             .foregroundStyle(.secondary)
@@ -77,7 +77,7 @@ struct PaywallView: View {
                     if let message = billing.message, message != billing.catalogError {
                         Text(message).font(.footnote).accessibilityLabel(message)
                     }
-                    if billing.isBusy { ProgressView("Confirming with Apple and ListingForge…") }
+                    if billing.isBusy { ProgressView("Confirming with Apple and Listing Force…") }
                 }
             }
             .navigationTitle("Plans and credits")

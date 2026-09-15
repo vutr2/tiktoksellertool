@@ -106,7 +106,7 @@ test("a code belonging to another Apple user never reaches the revocation endpoi
       urls.push(String(url));
       return Response.json({ id_token: "other-identity", refresh_token: "other-refresh" });
     },
-  }), /linked to this ListingForge account/);
+  }), /linked to this Listing Force account/);
   assert.equal(urls.length, 1);
 });
 

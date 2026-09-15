@@ -110,7 +110,7 @@ final class AuthStore {
             guard self.token == token else { return }
             try onAccountDeleted?()
             deletionNotice = skipAppleRevocation
-                ? "Your account was deleted. To disconnect Apple, open Settings → your Apple Account → Sign in with Apple → ListingForge → Stop Using Apple ID."
+                ? "Your account was deleted. To disconnect Apple, open Settings → your Apple Account → Sign in with Apple → Listing Force → Stop Using Apple ID."
                 : "Your account was deleted."
             session = nil
         } catch let APIError.http(status, message) where status == 428 {

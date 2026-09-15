@@ -36,7 +36,7 @@ enum AppleSignInError {
         case .failed:
             return "Apple couldn’t verify your account. Please try again or use email instead."
         case .notInteractive:
-            return "Sign in with Apple needs ListingForge to be open and in the foreground."
+            return "Sign in with Apple needs Listing Force to be open and in the foreground."
         default:
             return "Sign in with Apple didn’t work. Please try again or use email instead."
         }

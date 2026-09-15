@@ -41,7 +41,7 @@ struct SettingsView: View {
 
                 if auth.needsAppleDeletionAuthorization {
                     Section("Disconnect Sign in with Apple") {
-                        Text("Confirm your Apple account so we can disconnect it while deleting your ListingForge account.")
+                        Text("Confirm your Apple account so we can disconnect it while deleting your Listing Force account.")
                         SignInWithAppleButton(.continue) { _ in } onCompletion: { result in
                             handleDeletionAuthorization(result)
                         }

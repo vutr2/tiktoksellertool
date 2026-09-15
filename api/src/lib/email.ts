@@ -2,7 +2,7 @@
 // When RESEND_API_KEY is unset, logs the code to the server console for local dev.
 export async function sendOtpEmail(email: string, code: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "ListingForge <login@example.com>";
+  const from = process.env.EMAIL_FROM || "Listing Force <login@example.com>";
 
   if (!apiKey) {
     console.info(`[dev] OTP for ${email}: ${code}`);
@@ -18,8 +18,8 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
     body: JSON.stringify({
       from,
       to: [email],
-      subject: "Your ListingForge sign-in code",
-      text: `Your ListingForge verification code is ${code}. It expires in 10 minutes.`,
+      subject: "Your Listing Force sign-in code",
+      text: `Your Listing Force verification code is ${code}. It expires in 10 minutes.`,
     }),
   });
 

@@ -103,7 +103,7 @@ struct AppStoreComplianceTests {
             let text = try #require(infoValue(key), "\(key) is missing — the app crashes on first use of that API")
             #expect(text.count >= 30, "\(key) is too terse to pass review: \"\(text)\"")
             #expect(text.hasSuffix("."), "\(key) should read as a sentence: \"\(text)\"")
-            #expect(text.contains("ListingForge"), "\(key) should say who is asking")
+            #expect(text.contains("Listing Force"), "\(key) should say who is asking")
         }
     }
 

@@ -138,7 +138,7 @@ final class BillingStore {
             return
         }
         guard transaction.appAccountToken == userID else {
-            message = "A purchase belongs to another ListingForge account. Sign into that account to restore it."
+            message = "A purchase belongs to another Listing Force account. Sign into that account to restore it."
             return
         }
         guard inFlight.insert(transaction.id).inserted else { return }

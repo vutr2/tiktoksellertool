@@ -316,7 +316,7 @@ private struct ContentReportView: View {
                         TextField("Describe inaccurate, unsafe, or inappropriate content", text: $reason, axis: .vertical)
                             .lineLimit(4...8)
                             .disabled(isSending)
-                        Text("The generated asset and your explanation will be sent to ListingForge for review.")
+                        Text("The generated asset and your explanation will be sent to Listing Force for review.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

@@ -114,3 +114,17 @@ refreshes cannot overwrite the current catalog. The final app built, both
 existing purchase-acknowledgment tests passed (zero failures/skips), and the app
 was installed and launched in the existing Simulator. This does not validate
 Apple catalog availability or an actual purchase.
+
+## Display name — 15 September 2026
+
+The owner selected **Listing Force**. The iOS display name, in-app messages,
+permission descriptions, local StoreKit group name, backend customer-facing
+errors and sign-in email content now use that name. The supplied App Store
+Connect screenshot already shows Listing Force. Internal bundle IDs, keychain
+identifiers and product IDs continue to identify the existing app and accounts.
+
+Validation: the generated app bundle has `CFBundleDisplayName = Listing Force`;
+all 5 selected iOS permission/sign-in/launch tests and 91 backend tests passed,
+along with backend typechecking. The compiled app was installed and launched in
+Simulator. Backend email wording requires deployment; if Vercel's `EMAIL_FROM`
+overrides the sender name, update its display-name portion to Listing Force too.

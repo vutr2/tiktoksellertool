@@ -35,7 +35,7 @@ struct AuthView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("ListingForge")
+            .navigationTitle("Listing Force")
             .disabled(auth.isBusy)
             .overlay { if auth.isBusy { ProgressView() } }
             .alert("Account deleted", isPresented: Binding(

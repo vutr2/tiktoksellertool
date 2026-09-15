@@ -98,7 +98,7 @@ export function verifiedTransactionRecord(transaction: JWSTransactionDecodedPayl
 
 export async function processStoreTransaction(orgId: string, userId: string, jws: string) {
   const record = verifiedTransactionRecord(await verifyStoreTransaction(jws), jws);
-  if (record.appAccountToken !== userId.toLowerCase()) throw new BillingError("This purchase belongs to another ListingForge account.", 403);
+  if (record.appAccountToken !== userId.toLowerCase()) throw new BillingError("This purchase belongs to another Listing Force account.", 403);
   const { error } = await supabaseAdmin().rpc("apply_verified_apple_transaction", { p_org_id: orgId, p_transaction: record });
   if (error) throw new BillingError("Your purchase is safe with Apple, but credits could not be confirmed. Retry or restore purchases.", 503);
   return billingStatus(orgId, userId);

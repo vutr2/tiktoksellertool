@@ -59,7 +59,7 @@ export async function revokeAppleAuthorization(
 ): Promise<void> {
   const identity = await dependencies.verifyIdentity(identityToken);
   if (identity.appleUserId !== expectedAppleUserId) {
-    throw new AppleRevocationError("Use the Apple Account linked to this ListingForge account.");
+    throw new AppleRevocationError("Use the Apple Account linked to this Listing Force account.");
   }
   const credentials = {
     client_id: process.env.APPLE_AUDIENCE || "com.ctt.listingforge",
@@ -77,7 +77,7 @@ export async function revokeAppleAuthorization(
   // A valid code for a DIFFERENT Apple user must never revoke that user's grant.
   const exchangedIdentity = await dependencies.verifyIdentity(tokens.id_token);
   if (exchangedIdentity.appleUserId !== expectedAppleUserId) {
-    throw new AppleRevocationError("Use the Apple Account linked to this ListingForge account.");
+    throw new AppleRevocationError("Use the Apple Account linked to this Listing Force account.");
   }
   const token = typeof tokens.refresh_token === "string" ? tokens.refresh_token : tokens.access_token;
   if (typeof token !== "string" || !token) throw new AppleRevocationError("Apple did not return a token for revocation.");

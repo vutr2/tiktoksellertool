@@ -72,7 +72,7 @@ final class CameraSession {
         let hasAccess = await requestAccess()
         guard startID == id, !Task.isCancelled else { return }
         guard hasAccess else {
-            state = .unavailable("ListingForge needs camera access. Enable it in Settings to photograph products.")
+            state = .unavailable("Listing Force needs camera access. Enable it in Settings to photograph products.")
             return
         }
         do {

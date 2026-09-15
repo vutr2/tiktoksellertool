@@ -68,7 +68,7 @@ targets:
     info:
       path: ListingForge/Info.plist
       properties:
-        CFBundleDisplayName: ListingForge
+        CFBundleDisplayName: Listing Force
         API_BASE_URL: $(API_BASE_URL)
         PRIVACY_POLICY_URL: $(PRIVACY_POLICY_URL)
         SUPPORT_URL: $(SUPPORT_URL)
@@ -76,9 +76,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
-        NSCameraUsageDescription: "ListingForge uses the camera to photograph your products for marketplace listings."
-        NSPhotoLibraryUsageDescription: "ListingForge accesses your photo library to import product photos."
-        NSPhotoLibraryAddUsageDescription: "ListingForge saves generated listing images to your photo library."
+        NSCameraUsageDescription: "Listing Force uses the camera to photograph your products for marketplace listings."
+        NSPhotoLibraryUsageDescription: "Listing Force accesses your photo library to import product photos."
+        NSPhotoLibraryAddUsageDescription: "Listing Force saves generated listing images to your photo library."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
 

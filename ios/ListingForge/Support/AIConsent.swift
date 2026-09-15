@@ -38,7 +38,7 @@ struct AIConsentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Use AI to create your listing?").font(.title.bold())
-                    Text("ListingForge sends your product cutout photos, product details and visible label text to Anthropic, which processes them to generate listing text and ad scripts.")
+                    Text("Listing Force sends your product cutout photos, product details and visible label text to Anthropic, which processes them to generate listing text and ad scripts.")
                     Text("Background removal happens on your device. The original camera frame is not sent. Avoid including personal or sensitive information in your product photos and descriptions.")
                     Text("You can decline and keep your product without generating a listing. You can withdraw permission for future requests in Settings.")
                     if let url = AppConfig.privacyPolicyURL { Link("Privacy Policy", destination: url) }
