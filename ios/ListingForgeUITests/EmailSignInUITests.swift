@@ -4,7 +4,7 @@
 //
 //  End-to-end smoke test for M1: drives the real UI against the real API.
 //
-//  REQUIRES the backend running (`make api`) with Supabase configured. It is
+//  REQUIRES the configured backend running with Supabase configured. It is
 //  the only test here that talks to a live server — everything in
 //  ListingForgeTests uses a stubbed URLProtocol instead. Skipped automatically
 //  unless RUN_LIVE_AUTH_TESTS=1 is explicitly set; it can send email.
@@ -14,7 +14,11 @@ import XCTest
 
 final class EmailSignInUITests: XCTestCase {
 
-    private let apiBaseURL = URL(string: "http://localhost:3000")!
+    private var apiBaseURL: URL? {
+        guard let value = Bundle(for: EmailSignInUITests.self)
+            .object(forInfoDictionaryKey: "API_BASE_URL") as? String else { return nil }
+        return URL(string: value)
+    }
 
     /// The host machine and the simulator share a network stack, so the test
     /// process can check the same origin the app will call.
@@ -24,6 +28,7 @@ final class EmailSignInUITests: XCTestCase {
     /// answers health with 200 and then fails the flow, which used to make this
     /// test fail instead of skip.
     private func backendIsReachable() -> Bool {
+        guard let apiBaseURL else { return false }
         var reachable = false
         let done = expectation(description: "sign-in route")
 
@@ -115,7 +120,7 @@ final class EmailSignInUITests: XCTestCase {
     func testEmailSignInReachesTheAPI() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_LIVE_AUTH_TESTS"] == "1",
                           "Live email delivery requires explicit opt-in: RUN_LIVE_AUTH_TESTS=1.")
-        try XCTSkipUnless(backendIsReachable(), "Backend not running — start it with `make api`.")
+        try XCTSkipUnless(backendIsReachable(), "The configured backend is unavailable.")
 
         let app = XCUIApplication()
         app.launch()
@@ -142,8 +147,8 @@ final class EmailSignInUITests: XCTestCase {
         submit.tap()
 
         // The code field only appears after the API returns 200: reaching it
-        // proves app -> localhost:3000 -> Supabase -> back all worked, and that
-        // App Transport Security did not block the cleartext localhost call.
+        // proves the app reached the configured API and received a successful
+        // response. It does not prove that the email was delivered.
         let codeField = app.textFields["6-digit code"]
         XCTAssertTrue(
             codeField.waitForExistence(timeout: 20),

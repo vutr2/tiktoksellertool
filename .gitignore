@@ -1,6 +1,7 @@
 # Xcode / XcodeGen (project is generated from ios/project.yml)
 ios/*.xcodeproj
 ios/ListingForge/Info.plist
+ios/ListingForgeUITests/Info.plist
 ios/**/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
 DerivedData/

@@ -55,7 +55,7 @@ iOS: the latest ordinary suite passed 134 tests with 0 failures and 2 explicit s
    replay, first reconciliation after subscription expiry, refunds, and expired
    trials. Future periods are not granted early; feature access still expires.
    **Migrations 0005/0006 have not been applied to the live Supabase project.**
-2. Supply real public HTTPS backend, Privacy Policy, Terms and support URLs. Complete matching App Privacy answers, retention policy and support contact. Release validation deliberately fails while these are absent.
+2. The owner supplied `https://tiktoksellertool.vercel.app`; it is now the default API base URL for Debug and Release. Privacy Policy, Terms and support URLs are still required, along with matching App Privacy answers, retention policy and support contact. Release validation deliberately remains blocked until those three URLs are supplied.
 3. Configure App Store Connect products/group levels, introductory offers and agreements; provide numeric APP_STORE_APP_ID and verified bundle/environment settings. Configure V2 notifications at `/api/billing/notifications`. Same-tier monthly/annual products belong at the same group level; do not advertise bulk workflows that are not implemented.
 4. Validate real Apple Sandbox/TestFlight purchase, interrupted purchase, pending approval, restore after reinstall/account switch, renewal, refund and notifications against a staging database. Local StoreKit signatures are deliberately rejected by the real server. Do not enable Billing Grace Period until its entitlement behavior is implemented and tested; the current backend uses the verified transaction expiration.
 5. Apply approved migrations to staging and validate before any separate production deployment. No migration has been applied to production here. Existing backend routes now depend on the new functions.
@@ -74,4 +74,25 @@ The missing-month regression failed against 0005 before the fix and passed with
 0006. All 10 local database test groups, API typecheck and 91 API tests passed.
 No Swift source was changed in this fix. StoreKit testing remains blocked on the
 available iOS 26.5 runtime; the listed physical iPhone is currently unavailable.
-The real production API/privacy/terms/support URLs are still required.
+At that check, the production API/privacy/terms/support URLs were still missing; the API URL has since been supplied (see below).
+
+## Production URL connected — 15 September 2026
+
+The owner supplied `https://tiktoksellertool.vercel.app`. Direct HTTPS checks
+returned 200 and `{"ok":true}` from `/api/health`, 200 with JSON from
+`/api/rules`, and 401 from unauthenticated `/api/products` and `/api/billing`.
+These establish server reachability and authentication requirements, not database
+migration status, email delivery or successful sign-in. No live email, purchase,
+AI generation or database mutation was performed.
+
+`ios/project.yml` now injects this URL into both the app and UI test bundle;
+Debug and Release use the same supplied backend by default. For local API work,
+pass `API_BASE_URL=http://localhost:3000` to `xcodebuild` during build/test instead.
+The live email UI test remains opt-in. Privacy, Terms and support URLs remain
+empty, so Release validation still rejects an incomplete submission.
+
+Validation of this configuration change: XcodeGen regenerated the project; the
+app built successfully; all 4 selected configuration/launch tests passed with
+0 failures or skips. Both built Info.plists contain the supplied HTTPS API URL,
+and the app was launched in Simulator. Release validation accepts the API URL
+and still reports exactly the three missing privacy/terms/support URLs.

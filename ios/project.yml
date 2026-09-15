@@ -30,15 +30,9 @@ settings:
     PRIVACY_POLICY_URL: ""
     SUPPORT_URL: ""
     TERMS_URL: ""
-    # Injected into Info.plist as API_BASE_URL.
-  configs:
-    Debug:
-      API_BASE_URL: "http://localhost:3000"
-    # Deliberately empty: the production endpoint is not invented here. The
-    # Release build fails until a real HTTPS endpoint is supplied, so a
-    # loopback URL can never reach App Review (Guideline 2.1).
-    Release:
-      API_BASE_URL: ""
+    # Owner-provided backend, used by both Xcode runs and Release builds.
+    # For local backend development, override API_BASE_URL in xcodebuild.
+    API_BASE_URL: "https://tiktoksellertool.vercel.app"
 
 targets:
   ListingForge:
@@ -110,7 +104,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ctt.listingforge.uitests
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: ListingForgeUITests/Info.plist
+      properties:
+        API_BASE_URL: $(API_BASE_URL)
     dependencies:
       - target: ListingForge
 
