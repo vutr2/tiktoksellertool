@@ -59,6 +59,12 @@ struct AppStoreComplianceTests {
         // photo upload shipped.
         #expect(types.contains("NSPrivacyCollectedDataTypeEmailAddress"))
         #expect(types.contains("NSPrivacyCollectedDataTypeUserID"))
+        #expect(types.contains("NSPrivacyCollectedDataTypeName"), "Apple sign-in names are persisted in organization names.")
+        #expect(types.contains("NSPrivacyCollectedDataTypePurchaseHistory"), "Verified purchases are retained per account.")
+        #expect(types.contains("NSPrivacyCollectedDataTypeCustomerSupport"), "Content reports retain the user's explanation.")
+        #expect(types.contains("NSPrivacyCollectedDataTypeProductInteraction"), "Generation requests retain feature usage and status.")
+        #expect(types.contains("NSPrivacyCollectedDataTypePerformanceData"), "Generation latency is stored with org_id.")
+        #expect(types.contains("NSPrivacyCollectedDataTypeOtherDiagnosticData"), "Diagnostic trace IDs can be linked to an account.")
         #expect(
             types.contains("NSPrivacyCollectedDataTypePhotosorVideos"),
             "The app uploads product photos — the manifest must declare them."
@@ -70,6 +76,7 @@ struct AppStoreComplianceTests {
 
         for entry in collected {
             let name = entry["NSPrivacyCollectedDataType"] as? String ?? "unknown"
+            #expect(entry["NSPrivacyCollectedDataTypeLinked"] as? Bool == true, "\(name) can be linked through the account or product")
             #expect(entry["NSPrivacyCollectedDataTypeTracking"] as? Bool == false, "\(name) claims tracking")
             let purposes = entry["NSPrivacyCollectedDataTypePurposes"] as? [String] ?? []
             #expect(!purposes.isEmpty, "\(name) declares no purpose")

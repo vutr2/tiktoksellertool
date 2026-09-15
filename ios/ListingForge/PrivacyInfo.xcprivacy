@@ -25,6 +25,18 @@
     <key>NSPrivacyCollectedDataTypes</key>
     <array>
         <dict>
+            <!-- Apple sign-in can supply a name, persisted in the account's
+                 organization name by users.ts. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeName</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+        </dict>
+        <dict>
             <key>NSPrivacyCollectedDataType</key>
             <string>NSPrivacyCollectedDataTypePurchaseHistory</string>
             <key>NSPrivacyCollectedDataTypeLinked</key>
@@ -87,6 +99,54 @@
             <array>
                 <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
             </array>
+        </dict>
+        <dict>
+            <!-- In-app content reports retain the user's explanation and
+                 affected content with the account-owned product. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeCustomerSupport</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+        </dict>
+        <dict>
+            <!-- Generation requests retain the requested operation, marketplace
+                 and status under org_id to recover work and account for use. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+        </dict>
+        <dict>
+            <!-- AI request latency is persisted in generations.latency_ms,
+                 linked to the account through org_id. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePerformanceData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
+        </dict>
+        <dict>
+            <!-- Provider/model metadata and diagnostic traces support operation
+                 of the AI service. Stored trace IDs can link to org_id. -->
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array><string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string></array>
         </dict>
     </array>
 
