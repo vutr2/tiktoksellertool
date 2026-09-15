@@ -17,12 +17,15 @@ final class BillingStore {
     private(set) var status: BillingStatus?
     private(set) var products: [StoreKit.Product] = []
     private(set) var isBusy = false
+    private(set) var isLoadingProducts = false
+    private(set) var catalogError: String?
     var message: String?
     private let api: APIClient
     private var token: String?
     private var userID: UUID?
     @ObservationIgnored private var listener: Task<Void, Never>?
     private var inFlight: Set<UInt64> = []
+    private var refreshID = UUID()
 
     init(api: APIClient) {
         self.api = api
@@ -41,23 +44,37 @@ final class BillingStore {
         self.token = token
         status = nil
         products = []
+        refreshID = UUID()
+        isLoadingProducts = false
+        catalogError = nil
         message = nil
         Task { [weak self] in await self?.refreshPurchases() }
     }
 
     func refresh() async {
         guard let token else { return }
+        let requestID = UUID()
+        refreshID = requestID
+        isLoadingProducts = true
+        if message == catalogError { message = nil }
+        catalogError = nil
+        defer {
+            if refreshID == requestID { isLoadingProducts = false }
+        }
         do {
             let result: BillingStatus = try await api.get("api/billing", token: token)
-            guard self.token == token else { return }
+            guard self.token == token, refreshID == requestID else { return }
             status = result
             let catalog = try await StoreKit.Product.products(for: result.subscriptionProductIDs + [result.topupProductID])
-            guard self.token == token else { return }
+            guard self.token == token, refreshID == requestID else { return }
             products = catalog.sorted { $0.price < $1.price }
-            if catalog.isEmpty { message = "Plans are unavailable from the App Store. Try again later." }
+            if catalog.isEmpty {
+                catalogError = "We couldn’t load plans and prices from the App Store. Please try again later."
+            }
         } catch {
-            guard self.token == token else { return }
-            message = error.localizedDescription
+            guard self.token == token, refreshID == requestID else { return }
+            products = []
+            catalogError = error.localizedDescription
         }
     }
 
@@ -91,7 +108,9 @@ final class BillingStore {
             guard token == issuedToken else { return }
             await refreshPurchases()
             guard token == issuedToken else { return }
-            if message == nil { message = "Purchases refreshed. Your balance is confirmed by the server." }
+            if message == nil {
+                message = catalogError ?? "Purchases refreshed. Your balance is confirmed by the server."
+            }
         } catch {
             guard token == issuedToken else { return }
             message = error.localizedDescription

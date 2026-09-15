@@ -96,3 +96,21 @@ app built successfully; all 4 selected configuration/launch tests passed with
 0 failures or skips. Both built Info.plists contain the supplied HTTPS API URL,
 and the app was launched in Simulator. Release validation accepts the API URL
 and still reports exactly the three missing privacy/terms/support URLs.
+
+## Empty purchase catalog — 15 September 2026
+
+The owner's paywall screenshot shows a backend balance but an empty StoreKit
+catalog. The main scheme uses Apple's catalog; only the separate local StoreKit
+scheme selects `ListingForge.storekit`. All six subscription IDs and `topup_300`
+exist in the repository, but App Store Connect product creation, availability
+and agreements remain unverified. No authenticated App Store Connect connection
+or management CLI is available in this session. An empty catalog alone does not
+prove that the products have not been created.
+
+The paywall now shows loading and unavailable states beside the subscription
+list, with a retry button. Renewal text appears only when subscriptions load.
+Catalog errors are separate from purchase-confirmation errors, and superseded
+refreshes cannot overwrite the current catalog. The final app built, both
+existing purchase-acknowledgment tests passed (zero failures/skips), and the app
+was installed and launched in the existing Simulator. This does not validate
+Apple catalog availability or an actual purchase.
