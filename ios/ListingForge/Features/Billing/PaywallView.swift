@@ -46,14 +46,24 @@ struct PaywallView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(product.displayName).font(.headline)
                             Text(product.description).font(.subheadline)
-                            Button("Subscribe · \(product.displayPrice) / \(period(product))") {
-                                Task { await billing.purchase(product) }
+                            if let trial = freeTrial(product) {
+                                Button("Start \(trial) free trial · then \(product.displayPrice) / \(period(product))") {
+                                    Task { await billing.purchase(product) }
+                                }
+                                .disabled(billing.isBusy || billing.isLoadingProducts)
+                                Text("\(trial) free, then \(product.displayPrice) per \(period(product)). Renews automatically until canceled.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Button("Subscribe · \(product.displayPrice) / \(period(product))") {
+                                    Task { await billing.purchase(product) }
+                                }
+                                .disabled(billing.isBusy || billing.isLoadingProducts)
                             }
-                            .disabled(billing.isBusy || billing.isLoadingProducts)
                         }.padding(.vertical, 4)
                     }
                     if !subscriptions.isEmpty {
-                        Text("Subscriptions renew automatically unless canceled in your Apple account settings. The Apple purchase sheet shows the total price and any eligible introductory offer before confirmation.")
+                        Text("Subscriptions renew automatically unless canceled at least 24 hours before the period ends. Manage or cancel in your Apple account settings. A free trial that is not canceled converts to a paid subscription. The Apple purchase sheet shows the total price before confirmation.")
                             .font(.footnote)
                     }
                 }
@@ -97,5 +107,24 @@ struct PaywallView: View {
         @unknown default: unit = "period"
         }
         return period.value == 1 ? unit : "\(period.value) \(unit)s"
+    }
+
+    /// The introductory free-trial length to advertise, e.g. "7-day" or "1-week",
+    /// but only when this account is still eligible to claim it (§3.1.2 requires
+    /// the trial terms to be shown in-app, not just on Apple's sheet).
+    private func freeTrial(_ product: StoreKit.Product) -> String? {
+        guard billing.introOfferEligible,
+              let offer = product.subscription?.introductoryOffer,
+              offer.paymentMode == .freeTrial else { return nil }
+        let value = offer.period.value
+        let unit: String
+        switch offer.period.unit {
+        case .day: unit = "day"
+        case .week: unit = "week"
+        case .month: unit = "month"
+        case .year: unit = "year"
+        @unknown default: unit = "period"
+        }
+        return value == 1 ? "1-\(unit)" : "\(value)-\(unit)"
     }
 }

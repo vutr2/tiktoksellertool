@@ -27,9 +27,9 @@ settings:
     DEVELOPMENT_TEAM: "79AX4DYW78"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    PRIVACY_POLICY_URL: ""
-    SUPPORT_URL: ""
-    TERMS_URL: ""
+    PRIVACY_POLICY_URL: "https://tiktoksellertool.vercel.app/privacy"
+    SUPPORT_URL: "https://tiktoksellertool.vercel.app/support"
+    TERMS_URL: "https://tiktoksellertool.vercel.app/terms"
     # Owner-provided backend, used by both Xcode runs and Release builds.
     # For local backend development, override API_BASE_URL in xcodebuild.
     API_BASE_URL: "https://tiktoksellertool.vercel.app"
@@ -121,6 +121,11 @@ schemes:
         ListingForgeUITests: [test]
     run:
       config: Debug
+      # Load the local product catalog when running in the simulator/Xcode.
+      # Without a live App Store Connect environment, Product.products(for:)
+      # returns nothing and the paywall shows "Plans are currently unavailable".
+      # This only affects the Run action; Archive/Release use the real store.
+      storeKitConfiguration: StoreKit/ListingForge.storekit
     test:
       config: Debug
       targets:

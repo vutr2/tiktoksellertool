@@ -18,6 +18,10 @@ final class BillingStore {
     private(set) var products: [StoreKit.Product] = []
     private(set) var isBusy = false
     private(set) var isLoadingProducts = false
+    /// Whether this account can still claim the plans' introductory (free-trial)
+    /// offer. Eligibility is per subscription group, so one product answers for
+    /// all. The paywall only advertises the trial when this is true.
+    private(set) var introOfferEligible = false
     private(set) var catalogError: String?
     var message: String?
     private let api: APIClient
@@ -44,6 +48,7 @@ final class BillingStore {
         self.token = token
         status = nil
         products = []
+        introOfferEligible = false
         refreshID = UUID()
         isLoadingProducts = false
         catalogError = nil
@@ -71,9 +76,18 @@ final class BillingStore {
             if catalog.isEmpty {
                 catalogError = "We couldn’t load plans and prices from the App Store. Please try again later."
             }
+            // Eligibility is shared across the subscription group, so any plan answers.
+            if let subscription = catalog.first(where: { $0.type == .autoRenewable })?.subscription {
+                let eligible = await subscription.isEligibleForIntroOffer
+                guard self.token == token, refreshID == requestID else { return }
+                introOfferEligible = eligible
+            } else {
+                introOfferEligible = false
+            }
         } catch {
             guard self.token == token, refreshID == requestID else { return }
             products = []
+            introOfferEligible = false
             catalogError = error.localizedDescription
         }
     }
