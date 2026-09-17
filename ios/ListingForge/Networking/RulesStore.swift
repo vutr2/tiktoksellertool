@@ -62,6 +62,14 @@ final class RulesStore {
         self.api = api
     }
 
+    #if DEBUG
+    /// Seeds marketplaces for screenshots. `load()` then no-ops because the list
+    /// is already populated.
+    func seedDemo(_ marketplaces: [MarketplaceRulesDTO]) {
+        self.marketplaces = marketplaces
+    }
+    #endif
+
     func load() async {
         guard marketplaces.isEmpty, !isLoading else { return }
         isLoading = true

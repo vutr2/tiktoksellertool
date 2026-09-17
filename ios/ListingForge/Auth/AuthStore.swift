@@ -91,6 +91,13 @@ final class AuthStore {
         session = nil
     }
 
+    #if DEBUG
+    /// Signs in with a fake session for screenshots, without a network call.
+    func startDemoSession(_ user: UserDTO) {
+        session = Session(token: "demo-token", user: user)
+    }
+    #endif
+
     func deleteAccount(identityToken: String? = nil, authorizationCode: String? = nil,
                        skipAppleRevocation: Bool = false) async {
         guard let token, !isBusy else { return }

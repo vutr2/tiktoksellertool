@@ -25,7 +25,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: "79AX4DYW78"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     PRIVACY_POLICY_URL: "https://tiktoksellertool.vercel.app/privacy"
     SUPPORT_URL: "https://tiktoksellertool.vercel.app/support"
@@ -63,6 +63,9 @@ targets:
     preBuildScripts:
       - name: Validate submission configuration
         basedOnDependencyAnalysis: false
+        # Declared so the script phase sandbox allows reading it.
+        inputFiles:
+          - $(SRCROOT)/scripts/validate_release.py
         script: |
           /usr/bin/python3 "$SRCROOT/scripts/validate_release.py"
     info:

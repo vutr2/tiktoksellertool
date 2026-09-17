@@ -27,6 +27,9 @@ final class ProductStore {
     private let cacheDirectory: URL?
     private var isInvalidated = false
     private var loadID = UUID()
+    #if DEBUG
+    private var demoActive = false
+    #endif
 
     init(api: APIClient, cacheDirectory: URL? = nil) {
         self.api = api
@@ -91,7 +94,18 @@ final class ProductStore {
         }
     }
 
+    #if DEBUG
+    /// Seeds sample products for screenshots and stops `load()` from hitting the network.
+    func seedDemo(_ products: [ProductDTO]) {
+        demoActive = true
+        self.products = products
+    }
+    #endif
+
     func load(token: String) async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard !isInvalidated else { return }
         let issued = UUID()
         loadID = issued

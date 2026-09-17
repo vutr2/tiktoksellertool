@@ -43,7 +43,24 @@ final class AppEnvironment {
             try self.accountCache?.erase()
             try AccountCache.removeLegacyUnownedCache()
         }
+        #if DEBUG
+        startDemoIfNeeded()
+        #endif
     }
+
+    #if DEBUG
+    /// Seeds a signed-in session and sample content for screenshots. See DemoMode.
+    private func startDemoIfNeeded() {
+        guard DemoMode.isActive else { return }
+        rules.seedDemo(DemoData.marketplaces)
+        // Setting the session synchronously rebuilds `products` and creates the
+        // account cache, so seed the freshly built store afterwards.
+        auth.startDemoSession(DemoData.user)
+        products.seedDemo(DemoData.products)
+        billing.enableDemo()
+        Task { await billing.seedDemo(status: DemoData.billingStatus) }
+    }
+    #endif
 
     func retryAccountCache() {
         if case let .signedIn(user) = auth.state { useAccount(user) }

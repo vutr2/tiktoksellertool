@@ -1,6 +1,7 @@
 import { createHash, randomInt } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendOtpEmail } from "@/lib/email";
+import { reviewAccount } from "@/lib/env";
 import { json, error } from "@/lib/http";
 
 const CODE_TTL_MINUTES = 10;
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
   }
   const email = body.email?.trim().toLowerCase();
   if (!email || !isValidEmail(email)) return error("Enter a valid email address.");
+
+  // App Review demo account: accept a fixed code, so send nothing here.
+  if (reviewAccount.matches(email)) return json({});
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60_000).toISOString();

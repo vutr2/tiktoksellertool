@@ -58,6 +58,24 @@ export const langfuse = {
     Boolean(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY),
 };
 
+/**
+ * App Review demo account (App Store review only).
+ *
+ * The email sign-in flow emails a random one-time code, which an Apple reviewer
+ * cannot receive. When both variables are set, one designated email accepts a
+ * fixed code instead, so reviewers can sign in. Unset in normal operation, this
+ * bypass does not exist. Never reuse this email for a real customer.
+ */
+export const reviewAccount = {
+  email: () => (process.env.REVIEW_ACCOUNT_EMAIL || "").trim().toLowerCase(),
+  code: () => process.env.REVIEW_ACCOUNT_CODE || "",
+  isConfigured: () =>
+    Boolean(process.env.REVIEW_ACCOUNT_EMAIL && process.env.REVIEW_ACCOUNT_CODE),
+  /** True when `email` is the configured review account (bypass is enabled). */
+  matches: (email: string) =>
+    reviewAccount.isConfigured() && email === reviewAccount.email(),
+};
+
 /** Variables with no default — absent means that feature cannot run. */
 const REQUIRED_KEYS = [
   "ANTHROPIC_API_KEY",

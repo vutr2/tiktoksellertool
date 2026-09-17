@@ -30,6 +30,9 @@ final class BillingStore {
     @ObservationIgnored private var listener: Task<Void, Never>?
     private var inFlight: Set<UInt64> = []
     private var refreshID = UUID()
+    #if DEBUG
+    private var demoActive = false
+    #endif
 
     init(api: APIClient) {
         self.api = api
@@ -56,7 +59,29 @@ final class BillingStore {
         Task { [weak self] in await self?.refreshPurchases() }
     }
 
+    #if DEBUG
+    /// Marks the store as demo so refresh/restore never touch the network.
+    /// Set synchronously before any async work to win the race with the refresh
+    /// task spawned by `useAccount`.
+    func enableDemo() { demoActive = true }
+
+    /// Seeds a plan status and loads the local StoreKit catalog for screenshots.
+    func seedDemo(status: BillingStatus) async {
+        demoActive = true
+        self.status = status
+        let catalog = (try? await StoreKit.Product.products(
+            for: status.subscriptionProductIDs + [status.topupProductID])) ?? []
+        products = catalog.sorted { $0.price < $1.price }
+        if let subscription = products.first(where: { $0.type == .autoRenewable })?.subscription {
+            introOfferEligible = await subscription.isEligibleForIntroOffer
+        }
+    }
+    #endif
+
     func refresh() async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard let token else { return }
         let requestID = UUID()
         refreshID = requestID

@@ -2,7 +2,21 @@ import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { upsertUserWithOrg } from "@/lib/users";
 import { signSession } from "@/lib/session";
+import { reviewAccount } from "@/lib/env";
+import { balanceOf, appendEntry } from "@/lib/credits";
 import { json, error } from "@/lib/http";
+
+/** How many demo credits the review account is kept topped up to. */
+const REVIEW_CREDITS = 300;
+
+/** Signs in the App Review demo account and keeps it stocked with credits. */
+async function signInReviewAccount(email: string) {
+  const { user, orgId } = await upsertUserWithOrg({ email });
+  const { balance } = await balanceOf(orgId);
+  if (balance < 50) await appendEntry(orgId, REVIEW_CREDITS, "subscription.grant");
+  const token = await signSession({ userId: user.id, orgId });
+  return json({ token, user: { id: user.id, email: user.email } });
+}
 
 const MAX_ATTEMPTS = 5;
 
@@ -25,6 +39,16 @@ export async function POST(request: Request) {
   const email = body.email?.trim().toLowerCase();
   const code = body.code?.trim();
   if (!email || !code) return error("Email and code are required.");
+
+  // App Review demo account: accept the fixed code, bypassing the emailed OTP.
+  if (reviewAccount.matches(email)) {
+    if (code !== reviewAccount.code()) return error("That code is incorrect.");
+    try {
+      return await signInReviewAccount(email);
+    } catch (e) {
+      return error(e instanceof Error ? e.message : "Verification failed.", 500);
+    }
+  }
 
   const db = supabaseAdmin();
   const { data: otp } = await db
