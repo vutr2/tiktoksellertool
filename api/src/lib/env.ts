@@ -68,7 +68,8 @@ export const langfuse = {
  */
 export const reviewAccount = {
   email: () => (process.env.REVIEW_ACCOUNT_EMAIL || "").trim().toLowerCase(),
-  code: () => process.env.REVIEW_ACCOUNT_CODE || "",
+  // Trimmed so a stray space/newline pasted into the env var can't break the match.
+  code: () => (process.env.REVIEW_ACCOUNT_CODE || "").trim(),
   isConfigured: () =>
     Boolean(process.env.REVIEW_ACCOUNT_EMAIL && process.env.REVIEW_ACCOUNT_CODE),
   /** True when `email` is the configured review account (bypass is enabled). */

@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { anthropic as env } from "../env.ts";
 import { anthropicCostUSD } from "./pricing.ts";
 import { tracedGeneration } from "./tracing.ts";
+import { scriptsPrompt, parseVideoScripts, type VideoScript } from "../scripts.ts";
 import {
   ProviderError,
   type AdScript,
@@ -136,6 +137,37 @@ Rules:
 
 Reply with JSON only, no prose and no code fences:
 [{ "hook": string, "beats": string[], "durationSeconds": number }]`;
+}
+
+// MARK: - Structured video scripts (drives the 9:16 preview player)
+
+export async function generateVideoScripts(input: {
+  name: string;
+  category: string;
+  keyFeatures: string[];
+  count: number;
+  voice?: string;
+  makeId: (index: number) => string;
+}): Promise<VideoScript[]> {
+  const model = env.scriptModel();
+  const prompt = scriptsPrompt(input);
+  const result = await tracedGeneration(
+    "write-video-scripts",
+    { provider: "anthropic", model, input: prompt },
+    async () => {
+      const response = await call(() =>
+        client().messages.create({
+          model,
+          system: CONTENT_SAFETY,
+          max_tokens: 4000,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      );
+      const scripts = parseVideoScripts(textOf(response), input.makeId);
+      return { value: scripts, output: scripts, ...usageOf(response, model) };
+    },
+  );
+  return result.value;
 }
 
 // MARK: - SDK plumbing

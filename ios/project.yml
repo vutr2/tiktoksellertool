@@ -26,7 +26,7 @@ settings:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: "79AX4DYW78"
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     PRIVACY_POLICY_URL: "https://tiktoksellertool.vercel.app/privacy"
     SUPPORT_URL: "https://tiktoksellertool.vercel.app/support"
     TERMS_URL: "https://tiktoksellertool.vercel.app/terms"

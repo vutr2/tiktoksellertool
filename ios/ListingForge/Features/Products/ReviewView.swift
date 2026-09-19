@@ -61,6 +61,8 @@ struct ReviewView: View {
     @State private var selectedMarketplace: String?
     @State private var reportingAsset: ReviewAsset?
     @State private var copiedAssetID: String?
+    @State private var showStudio = false
+    @State private var showScripts = false
 
     private var marketplaces: [String] {
         var seen: [String] = []
@@ -124,6 +126,16 @@ struct ReviewView: View {
                 ContentReportView(productID: productID, asset: asset)
             }
         }
+        .sheet(isPresented: $showStudio) {
+            if let productID {
+                StudioView(productID: productID, api: appEnvironment.api)
+            }
+        }
+        .sheet(isPresented: $showScripts) {
+            if let productID {
+                ScriptsView(productID: productID, api: appEnvironment.api)
+            }
+        }
     }
 
     // MARK: Header
@@ -134,6 +146,14 @@ struct ReviewView: View {
             Spacer()
             Text("Review").font(.headline)
             Spacer()
+            if productID != nil {
+                Button { showScripts = true } label: { Image(systemName: "film") }
+                    .accessibilityLabel("Video scripts")
+                    .padding(.trailing, 12)
+                Button { showStudio = true } label: { Image(systemName: "wand.and.stars") }
+                    .accessibilityLabel("Studio shots")
+                    .padding(.trailing, 12)
+            }
             if let text = exportText, !text.isEmpty {
                 ShareLink(item: text) { Text("Export") }
             } else {
