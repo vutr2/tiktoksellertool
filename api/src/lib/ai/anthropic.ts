@@ -290,6 +290,9 @@ export class AnthropicListingProvider implements ListingCopyProvider {
       forbidPromoLanguage: boolean;
       forbidAllCaps: boolean;
     };
+    voice?: string;
+    hashtagGuidance?: string;
+    avoid?: string[];
   }): Promise<ModelResult<ListingCopy>> {
     const model = env.scriptModel();
     const prompt = listingPrompt(input);
@@ -324,6 +327,9 @@ function listingPrompt(input: {
     forbidPromoLanguage: boolean;
     forbidAllCaps: boolean;
   };
+  voice?: string;
+  hashtagGuidance?: string;
+  avoid?: string[];
 }): string {
   const { facts, marketplaceName, constraints } = input;
 
@@ -342,20 +348,29 @@ function listingPrompt(input: {
       : null,
   ].filter(Boolean).join("\n");
 
-  return `Write a ${marketplaceName} listing for this product.
+  const voiceLine = input.voice ? `\nSelling voice: ${input.voice}\n` : "";
+  const avoidBlock = input.avoid && input.avoid.length
+    ? `\nAvoid these claims:\n${input.avoid.map((a) => `- ${a}`).join("\n")}\n`
+    : "";
+  const hashtagRule = input.hashtagGuidance
+    ? `- Hashtags: 5–10 relevant tags without the leading #. ${input.hashtagGuidance}`
+    : null;
+  const allRules = [rules, hashtagRule].filter(Boolean).join("\n");
 
+  return `Write a ${marketplaceName} listing for this product.
+${voiceLine}
 Product: ${facts.suggestedName}
 Category: ${facts.suggestedCategory}
 ${facts.material ? `Material: ${facts.material}\n` : ""}${facts.colour ? `Colour: ${facts.colour}\n` : ""}Key features: ${facts.keyFeatures.join(", ") || "none given"}
 ${facts.visibleText.length ? `Text visible on the product: ${facts.visibleText.join(", ")}\n` : ""}
 ${marketplaceName} rules:
-${rules}
-
+${allRules}
+${avoidBlock}
 Claim nothing that is not in the details above — an invented measurement or
 material becomes a false claim in a live listing.
 
 Reply with JSON only, no prose and no code fences:
-{ "title": string, "bullets": string[], "description": string | null }`;
+{ "title": string, "bullets": string[], "description": string | null, "hashtags": string[] }`;
 }
 
 export function parseListingCopy(text: string): ListingCopy {
@@ -373,5 +388,6 @@ export function parseListingCopy(text: string): ListingCopy {
     title,
     bullets: stringList(o.bullets),
     description: typeof o.description === "string" && o.description.trim() ? o.description.trim() : undefined,
+    hashtags: stringList(o.hashtags).map((t) => t.replace(/^#+/, "").trim()).filter(Boolean).slice(0, 10),
   };
 }

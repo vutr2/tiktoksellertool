@@ -129,7 +129,7 @@ final class ProductStore {
     /// The draft UUID and image hashes keep retries tied to the same product.
     /// Each raw PNG fits the API body limit without base64 expansion.
     func create(draftID: UUID, name: String, category: String?, keyFeatures: [String],
-                cutouts: [Data], token: String) async -> ProductDTO? {
+                cutouts: [Data], industry: Industry? = nil, token: String) async -> ProductDTO? {
         guard !isInvalidated, !isSaving else { return nil }
         isSaving = true
         errorMessage = nil
@@ -141,11 +141,13 @@ final class ProductStore {
             let keyFeatures: [String]
             let cutoutCount: Int
             let cutoutSHA256: [String]
+            let industry: String?
         }
         do {
             let request = DraftRequest(productId: draftID, name: name, category: category,
                 keyFeatures: keyFeatures, cutoutCount: cutouts.count,
-                cutoutSHA256: cutouts.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() })
+                cutoutSHA256: cutouts.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() },
+                industry: industry?.rawValue)
             let draft: ProductDTO = try await api.post("api/products", body: request, token: token)
             for (index, bytes) in cutouts.enumerated() {
                 guard !isInvalidated else { return nil }

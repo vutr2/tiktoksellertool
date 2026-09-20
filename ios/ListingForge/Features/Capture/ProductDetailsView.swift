@@ -36,6 +36,9 @@ struct ProductDetailsView: View {
     @State private var draftID = UUID()
     @State private var hasSubmitted = false
     @State private var pendingResult: GenerateResultDTO?
+    @State private var industry: Industry = .beauty
+    @State private var showingStudio = false
+    @State private var advanceToMarketplaces = false
 
     private var store: ProductStore { appEnvironment.products }
     private var mainCutout: ProductCutout? { cutouts.first }
@@ -54,6 +57,7 @@ struct ProductDetailsView: View {
                     cutoutCard
                     field("Product name", text: $name, placeholder: "Ceramic pour-over dripper")
                     field("Category", text: $category, placeholder: "Home & Kitchen › Coffee")
+                    industryField
                     featuresField
 
                     if let message = store.errorMessage {
@@ -96,6 +100,24 @@ struct ProductDetailsView: View {
         .onChange(of: name) { _, value in appEnvironment.captureDraft.draft.name = value }
         .onChange(of: category) { _, value in appEnvironment.captureDraft.draft.category = value }
         .onChange(of: keyFeatures) { _, value in appEnvironment.captureDraft.draft.keyFeatures = value }
+        .sheet(isPresented: $showingStudio, onDismiss: {
+            if advanceToMarketplaces {
+                advanceToMarketplaces = false
+                showingMarketplaces = true
+            }
+        }) {
+            if let product = savedProduct {
+                StudioView(
+                    productID: product.id,
+                    api: appEnvironment.api,
+                    productName: product.name,
+                    thumbnail: mainCutout.flatMap { UIImage(data: $0.pngData) },
+                    industry: industry,
+                    stepLabel: "3 of 4",
+                    onContinue: { advanceToMarketplaces = true }
+                )
+            }
+        }
         .sheet(isPresented: $showingMarketplaces, onDismiss: {
             if let result = pendingResult {
                 pendingResult = nil
@@ -182,6 +204,21 @@ struct ProductDetailsView: View {
         }
     }
 
+    private var industryField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Industry").font(.subheadline).foregroundStyle(.secondary)
+            Picker("Industry", selection: $industry) {
+                ForEach(Industry.allCases) { Text("\($0.emoji) \($0.label)").tag($0) }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+            Text("Tailors the studio styles, listing voice, and hashtags.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
     private var featuresField: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Key features (optional)").font(.subheadline).foregroundStyle(.secondary)
@@ -215,9 +252,9 @@ struct ProductDetailsView: View {
 
     private func save() {
         guard !isSubmitting else { return }
-        // Already saved: reopen step 3 rather than creating the product again.
+        // Already saved: reopen the studio step rather than creating it again.
         if savedProduct != nil {
-            showingMarketplaces = true
+            showingStudio = true
             return
         }
         guard let token = appEnvironment.auth.token else {
@@ -245,6 +282,7 @@ struct ProductDetailsView: View {
                 category: ProductDetailsView.trimmedOrNil(category),
                 keyFeatures: ProductDetailsView.features(from: keyFeatures),
                 cutouts: photos,
+                industry: industry,
                 token: token
             )
             guard let created, appEnvironment.auth.token == token,
@@ -257,11 +295,10 @@ struct ProductDetailsView: View {
             catch { currentStore.errorMessage = "Your product is saved online, but its offline copy could not be saved." }
 
             onCreated(created)
-            // Straight on to marketplace selection — the design is one flow,
-            // not a save-and-come-back-later.
+            // One flow: studio shots first (design step 3), then listing.
             savedProduct = created
             draftStore.draft.savedProduct = created
-            showingMarketplaces = true
+            showingStudio = true
         }
     }
 

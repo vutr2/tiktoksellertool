@@ -83,6 +83,8 @@ export interface ListingCopy {
   /** Bullet marketplaces populate this; paragraph ones use `description`. */
   bullets: string[];
   description?: string;
+  /** Suggested hashtags (without the leading #). Empty when not requested. */
+  hashtags: string[];
 }
 
 export interface ListingCopyProvider {
@@ -99,6 +101,12 @@ export interface ListingCopyProvider {
       forbidPromoLanguage: boolean;
       forbidAllCaps: boolean;
     };
+    /** Optional per-industry selling voice to steer tone. */
+    voice?: string;
+    /** Optional guidance for how to choose hashtags; when set, ask for hashtags. */
+    hashtagGuidance?: string;
+    /** Short "avoid this / do that instead" hints from the industry pack. */
+    avoid?: string[];
   }): Promise<ModelResult<ListingCopy>>;
 }
 

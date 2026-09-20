@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { verifySession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { CUTOUT_BUCKET, ProductError, readLimitedBody } from "@/lib/products";
-import { isIndustry, findScene, publicCatalog, type StudioScene } from "@/lib/studio";
+import { isIndustry, findScene, publicCatalog } from "@/lib/studio";
 import { composeScene, ImageError } from "@/lib/ai/image";
 import { billingConfig } from "@/lib/billing-config";
 import { assertCanAfford, chargeCredits, balanceOf, InsufficientCreditsError } from "@/lib/credits";
@@ -41,11 +41,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const { data: rows } = await db.from("assets").select("id, marketplace, url")
     .eq("product_id", id).like("marketplace", "studio:%");
-  const images = await Promise.all((rows ?? []).map(async (r) => ({
-    sceneId: (r.marketplace as string).slice("studio:".length),
-    assetId: r.id as string,
-    url: await signed(r.url as string),
-  })));
+  const images = await Promise.all((rows ?? []).map(async (r) => {
+    const [sceneId, indexStr] = (r.marketplace as string).slice("studio:".length).split(":");
+    return {
+      sceneId,
+      index: Number(indexStr) || 0,
+      assetId: r.id as string,
+      url: await signed(r.url as string),
+    };
+  }));
   return json({ creditsPerImage: billingConfig.costs.imageGeneration, catalog: publicCatalog(), images });
 }
 
@@ -63,17 +67,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!body || typeof body !== "object" || !isIndustry(body.industry)) {
     return error("Choose an industry.");
   }
-  const requested: unknown = body.sceneIds;
-  if (!Array.isArray(requested) || requested.length < 1 || requested.length > 4) {
-    return error("Choose between one and four scenes.");
-  }
-  const sceneIds = [...new Set(requested)];
-  const scenes: StudioScene[] = [];
-  for (const sid of sceneIds) {
-    const scene = typeof sid === "string" ? findScene(body.industry, sid) : undefined;
-    if (!scene) return error("One of the chosen scenes is not available for this industry.");
-    scenes.push(scene);
-  }
+  const scene = typeof body.sceneId === "string" ? findScene(body.industry, body.sceneId) : undefined;
+  if (!scene) return error("Choose a studio style available for this industry.");
+  const count = [1, 3, 5].includes(body.count) ? (body.count as number) : 3;
 
   const db = supabaseAdmin();
   const { data: product, error: lookupError } = await db.from("products")
@@ -82,11 +78,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!product) return error("That product could not be found.", 404);
   if (!product.cutout_url) return error("Capture a product photo before generating studio shots.");
 
-  // Skip scenes already generated — never regenerate or double-charge on retry.
-  const assetIds = scenes.map((s) => studioAssetID(claims.orgId, id, s.id));
-  const { data: existingRows } = await db.from("assets").select("id, marketplace, url").in("id", assetIds);
+  // Each angle is a distinct variation of the chosen style. Skip any already
+  // made so a retry never regenerates or double-charges.
+  const variationKey = (n: number) => `${scene.id}:${n}`;
+  const wanted = Array.from({ length: count }, (_, n) => n);
+  const assetIds = wanted.map((n) => studioAssetID(claims.orgId, id, variationKey(n)));
+  const { data: existingRows } = await db.from("assets").select("id, url").in("id", assetIds);
   const existing = new Map((existingRows ?? []).map((r) => [r.id as string, r.url as string]));
-  const todo = scenes.filter((s) => !existing.has(studioAssetID(claims.orgId, id, s.id)));
+  const todo = wanted.filter((n) => !existing.has(studioAssetID(claims.orgId, id, variationKey(n))));
 
   const cost = billingConfig.costs.imageGeneration;
   try {
@@ -97,25 +96,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const subject = { data: Buffer.from(await cutout.arrayBuffer()), mime: "image/png" };
 
     let generated = 0;
-    for (const scene of todo) {
+    for (const n of todo) {
       const result = await composeScene(subject, scene);
-      const path = `${claims.orgId}/${id}/studio/${scene.id}.png`;
+      const path = `${claims.orgId}/${id}/studio/${scene.id}-${n}.png`;
       const up = await db.storage.from(CUTOUT_BUCKET).upload(path, result.data, { contentType: result.mime, upsert: true });
-      if (up.error) throw new ImageError("Could not save the generated image. Retry this scene.");
+      if (up.error) throw new ImageError("Could not save the generated image. Retry this style.");
       const { error: insertError } = await db.from("assets").upsert({
-        id: studioAssetID(claims.orgId, id, scene.id), product_id: id, type: "image",
-        marketplace: `studio:${scene.id}`, url: path, validation_status: "pass", violations: [],
+        id: studioAssetID(claims.orgId, id, variationKey(n)), product_id: id, type: "image",
+        marketplace: `studio:${variationKey(n)}`, url: path, validation_status: "pass", violations: [],
       }, { onConflict: "id" });
-      if (insertError) throw new ImageError("Could not save the generated image. Retry this scene.");
+      if (insertError) throw new ImageError("Could not save the generated image. Retry this style.");
       // Charge per image as it lands, so a mid-batch failure only bills success.
       await chargeCredits(claims.orgId, cost, "generation.image");
-      existing.set(studioAssetID(claims.orgId, id, scene.id), path);
+      existing.set(studioAssetID(claims.orgId, id, variationKey(n)), path);
       generated += 1;
     }
 
-    const images = await Promise.all(scenes.map(async (s) => {
-      const path = existing.get(studioAssetID(claims.orgId, id, s.id))!;
-      return { sceneId: s.id, assetId: studioAssetID(claims.orgId, id, s.id), url: await signed(path) };
+    const images = await Promise.all(wanted.map(async (n) => {
+      const path = existing.get(studioAssetID(claims.orgId, id, variationKey(n)))!;
+      return { sceneId: scene.id, index: n, assetId: studioAssetID(claims.orgId, id, variationKey(n)), url: await signed(path) };
     }));
     const { balance } = await balanceOf(claims.orgId);
     return json({ images, creditsCharged: generated * cost, balanceAfter: balance });

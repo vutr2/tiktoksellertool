@@ -18,6 +18,8 @@ import { rulesFor } from "./rules/registry.ts";
 import { statusOf, validate } from "./rules/validate.ts";
 import type { MarketplaceId, Violation } from "./rules/types.ts";
 import { CUTOUT_BUCKET } from "./products.ts";
+import { isIndustry, type Industry } from "./studio.ts";
+import { INDUSTRY_PACKS, lintClaims } from "./industry-packs.ts";
 import { supabaseAdmin } from "./supabase.ts";
 
 /** Title plus description, per marketplace. */
@@ -33,7 +35,7 @@ export interface GenerateInput {
 
 export interface GeneratedAsset {
   id?: string;
-  type: "title" | "description" | "script";
+  type: "title" | "description" | "script" | "hashtags";
   marketplace: string;
   content: string;
   status: "pass" | "warn" | "fail";
@@ -98,6 +100,11 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
   const failures: { marketplace: string; reason: string }[] = [];
   let creditsCharged = 0;
 
+  // Optional per-industry pack. Absent (older products) → unchanged behaviour.
+  const industry: Industry | null = isIndustry(product.attributes?.industry) ? product.attributes.industry : null;
+  const pack = industry ? INDUSTRY_PACKS[industry] : null;
+  const avoid = pack ? pack.bannedClaims.map((c) => `${c.why} Instead: ${c.fix}`) : undefined;
+
   for (const marketplace of input.marketplaces) {
     try {
       const rules = rulesFor(marketplace);
@@ -113,13 +120,20 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           forbidPromoLanguage: rules.title?.forbid?.includes("promoLanguage") ?? false,
           forbidAllCaps: rules.title?.forbid?.includes("allCaps") ?? false,
         },
+        voice: pack?.voice,
+        hashtagGuidance: pack?.hashtagGuidance,
+        avoid,
       });
       const usage = { ...copy.usage, creditsCharged: 0 };
       usages.push(usage);
 
       // The generated copy is judged by the same engine that judges a seller's
-      // own text — the model is not trusted to have followed the limits.
-      const titleViolations = validate({ type: "title", text: copy.value.title }, rules);
+      // own text — the model is not trusted to have followed the limits. The
+      // industry banned-claim lint adds warnings on top.
+      const titleViolations = [
+        ...validate({ type: "title", text: copy.value.title }, rules),
+        ...industryLint(copy.value.title, industry, "title"),
+      ];
       assets.push({
         type: "title",
         marketplace,
@@ -128,20 +142,34 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         violations: titleViolations,
       });
 
+      const descriptionText = copy.value.bullets.length > 0
+        ? copy.value.bullets.join("\n")
+        : copy.value.description ?? "";
       const descriptionAsset =
         copy.value.bullets.length > 0
           ? { type: "description" as const, bullets: copy.value.bullets }
           : { type: "description" as const, text: copy.value.description ?? "" };
-      const descriptionViolations = validate(descriptionAsset, rules);
+      const descriptionViolations = [
+        ...validate(descriptionAsset, rules),
+        ...industryLint(descriptionText, industry, "description"),
+      ];
       assets.push({
         type: "description",
         marketplace,
-        content: copy.value.bullets.length > 0
-          ? copy.value.bullets.join("\n")
-          : copy.value.description ?? "",
+        content: descriptionText,
         status: statusOf(descriptionViolations),
         violations: descriptionViolations,
       });
+
+      if (copy.value.hashtags.length > 0) {
+        assets.push({
+          type: "hashtags",
+          marketplace,
+          content: copy.value.hashtags.map((t) => `#${t}`).join(" "),
+          status: "pass",
+          violations: [],
+        });
+      }
 
       // Charged only now that this marketplace produced something.
       usage.creditsCharged = CREDITS_PER_MARKETPLACE;
@@ -203,6 +231,18 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
 export class GenerationRequestError extends Error {
   readonly status: number;
   constructor(message: string, status: number) { super(message); this.status = status; }
+}
+
+/** Industry banned-claim hits as warn-level violations shown in Review. */
+function industryLint(text: string, industry: Industry | null, field: string): Violation[] {
+  if (!industry) return [];
+  return lintClaims(text, industry).map((hit) => ({
+    code: "industry.banned_claim",
+    severity: "warn" as const,
+    field,
+    message: `Risky claim: "${hit.matched}". ${hit.why}`,
+    detail: hit.fix,
+  }));
 }
 
 /** Reads the cutout and asks Claude what the product is. */

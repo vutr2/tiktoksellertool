@@ -2,8 +2,8 @@
 //  StudioStore.swift
 //  ListingForge
 //
-//  Studio backdrops: send the product cutout to the server, which composites it
-//  onto a generated studio scene (per-industry) and returns a signed image URL.
+//  Studio backdrops: the seller picks one style and how many angles, and the
+//  server composites the product cutout onto that many generated variations.
 //  The product itself is never redrawn — only the background is generated.
 //
 
@@ -20,6 +20,7 @@ struct StudioScene: Decodable, Identifiable, Hashable {
 
 struct StudioImage: Decodable, Identifiable, Hashable {
     let sceneId: String
+    let index: Int
     let assetId: String
     let url: String?
     var id: String { assetId }
@@ -40,10 +41,10 @@ private struct StudioGenerateResponse: Decodable {
 @MainActor
 @Observable
 final class StudioStore {
-    private(set) var creditsPerImage = 0
+    private(set) var creditsPerImage = 5
     private(set) var catalog: [Industry: [StudioScene]] = [:]
-    /// Signed image URL for each scene already generated, keyed by scene id.
-    private(set) var images: [String: URL] = [:]
+    /// The most recent set of generated variations, in order.
+    private(set) var results: [StudioImage] = []
     private(set) var isLoading = false
     private(set) var isGenerating = false
     var errorMessage: String?
@@ -69,34 +70,26 @@ final class StudioStore {
             catalog = Dictionary(uniqueKeysWithValues: response.catalog.compactMap { key, value in
                 Industry(rawValue: key).map { ($0, value) }
             })
-            merge(response.images)
+            results = response.images.filter { $0.url != nil }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    func generate(industry: Industry, sceneIDs: [String], token: String) async {
-        guard !isGenerating, !sceneIDs.isEmpty else { return }
+    func generate(industry: Industry, sceneID: String, count: Int, token: String) async {
+        guard !isGenerating else { return }
         isGenerating = true
         errorMessage = nil
         defer { isGenerating = false }
-        struct Request: Encodable { let industry: String; let sceneIds: [String] }
+        struct Request: Encodable { let industry: String; let sceneId: String; let count: Int }
         do {
             let response: StudioGenerateResponse = try await api.post(
                 "api/products/\(productID)/studio",
-                body: Request(industry: industry.rawValue, sceneIds: sceneIDs),
+                body: Request(industry: industry.rawValue, sceneId: sceneID, count: count),
                 token: token)
-            merge(response.images)
+            results = response.images.filter { $0.url != nil }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        }
-    }
-
-    private func merge(_ incoming: [StudioImage]) {
-        for image in incoming {
-            if let raw = image.url, let url = URL(string: raw) {
-                images[image.sceneId] = url
-            }
         }
     }
 }

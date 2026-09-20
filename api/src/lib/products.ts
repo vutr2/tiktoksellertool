@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { supabaseAdmin } from "./supabase.ts";
 import { assertActiveOrganization } from "./session.ts";
+import { isIndustry, type Industry } from "./studio.ts";
 
 export const CUTOUT_BUCKET = "cutouts";
 export const MAX_CUTOUT_BYTES = 4 * 1024 * 1024;
@@ -18,11 +19,11 @@ export class ProductError extends Error {
 }
 export interface CreateProductInput {
   productId?: unknown; name?: unknown; category?: unknown; keyFeatures?: unknown;
-  cutoutCount?: unknown; cutoutSHA256?: unknown; cutoutPngBase64?: unknown;
+  cutoutCount?: unknown; cutoutSHA256?: unknown; cutoutPngBase64?: unknown; industry?: unknown;
 }
 export interface ValidatedProduct {
   productId: string; name: string; category: string | null; keyFeatures: string[];
-  cutout: Buffer | null; cutoutSHA256: string[]; staged: boolean;
+  cutout: Buffer | null; cutoutSHA256: string[]; staged: boolean; industry: Industry | null;
 }
 export type Validation = { ok: true; value: ValidatedProduct } | { ok: false; error: string };
 
@@ -64,7 +65,8 @@ export function validateCreateProduct(input: CreateProductInput): Validation {
     }
     cutoutSHA256 = [digest(cutout)];
   }
-  return { ok: true, value: { productId, name, category, keyFeatures, cutout, cutoutSHA256, staged } };
+  const industry = isIndustry(input.industry) ? input.industry : null;
+  return { ok: true, value: { productId, name, category, keyFeatures, cutout, cutoutSHA256, staged, industry } };
 }
 
 /** Validate chunks and decompression, not just a forgeable 8-byte signature. */
@@ -132,7 +134,7 @@ export async function createProduct(orgId: string, product: ValidatedProduct): P
   await assertActiveOrganization(orgId);
   const creationHash = digest(JSON.stringify([product.name, product.category, product.keyFeatures, product.cutoutSHA256]));
   const { error } = await db.from("products").insert({ id: product.productId, org_id: orgId, name: product.name, category: product.category,
-    attributes: { keyFeatures: product.keyFeatures, captureStatus: "uploading", cutoutSHA256: product.cutoutSHA256, creationHash } });
+    attributes: { keyFeatures: product.keyFeatures, captureStatus: "uploading", cutoutSHA256: product.cutoutSHA256, creationHash, industry: product.industry } });
   if (error && error.code !== "23505") throw new ProductError("Could not save the product. Retry this draft.", 500);
   const row = await ownedProduct(orgId, product.productId);
   if (row.attributes.creationHash !== creationHash) throw new ProductError("This draft was already saved with different details. Start a new product.", 409);
