@@ -11,12 +11,14 @@ import SwiftUI
 struct StudioView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var store: StudioStore
     @State private var industry: Industry
     @State private var selectedStyle: String?
     @State private var angles = 3
     @State private var saveNotice: String?
+    @State private var generationTask: Task<Void, Never>?
 
     let productName: String
     let thumbnail: UIImage?
@@ -40,8 +42,8 @@ struct StudioView: View {
 
     private var token: String? { appEnvironment.auth.token }
     private var styles: [StudioScene] { store.scenes(for: industry) }
-    private var cost: Int { angles * store.creditsPerImage }
-    private var balance: Int? { appEnvironment.billing.status?.balance }
+    private var cost: Int { store.uncachedCount(sceneID: selectedStyle, count: angles) * store.creditsPerImage }
+    private var balance: Int? { store.balanceAfter ?? appEnvironment.billing.status?.balance }
 
     var body: some View {
         NavigationStack {
@@ -50,8 +52,11 @@ struct StudioView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         productCard
                         industryMenu
+                            .disabled(store.isGenerating)
                         stylePicker
+                            .allowsHitTesting(!store.isGenerating)
                         anglePicker
+                            .allowsHitTesting(!store.isGenerating)
                         results
                         if let message = store.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red)
@@ -68,10 +73,15 @@ struct StudioView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
                 if let stepLabel { ToolbarItem(placement: .principal) { Text(stepLabel).foregroundStyle(.secondary) } }
             }
-            .task {
-                if store.catalog.isEmpty, let token { await store.load(token: token) }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                if !store.isGenerating, let token { await store.load(token: token) }
                 if selectedStyle == nil { selectedStyle = styles.first?.id }
             }
+            .onChange(of: scenePhase) {
+                if scenePhase == .background { generationTask?.cancel() }
+            }
+            .onDisappear { generationTask?.cancel() }
             .onChange(of: industry) { selectedStyle = styles.first?.id }
         }
     }
@@ -207,10 +217,14 @@ struct StudioView: View {
 
     private var footer: some View {
         VStack(spacing: 10) {
-            Text("Estimated cost · \(cost) credits" + (balance.map { " of your \($0) this month" } ?? ""))
+            Text("Estimated cost · \(cost) credits" + (balance.map { " · \($0) available" } ?? ""))
                 .font(.footnote).foregroundStyle(.secondary)
+            if let message = store.progressMessage {
+                Text(message).font(.footnote).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             Button {
-                Task { await generate() }
+                generationTask = Task { await generate() }
             } label: {
                 Group {
                     if store.isGenerating { ProgressView().tint(.white) }
@@ -220,7 +234,7 @@ struct StudioView: View {
                 .background(selectedStyle == nil ? Color.gray.opacity(0.4) : Color.black)
                 .foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .disabled(selectedStyle == nil || store.isGenerating)
+            .disabled(selectedStyle == nil || store.isGenerating || store.isLoading)
 
             if let onContinue {
                 Button {
@@ -241,6 +255,7 @@ struct StudioView: View {
         guard let token, let style = selectedStyle else { return }
         saveNotice = nil
         await store.generate(industry: industry, sceneID: style, count: angles, token: token)
+        if !Task.isCancelled { await appEnvironment.billing.refresh() }
     }
 
     private func save(_ url: URL) async {

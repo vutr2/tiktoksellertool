@@ -43,9 +43,10 @@ struct APIClient {
     func post<Body: Encodable, Response: Decodable>(
         _ path: String,
         body: Body,
-        token: String? = nil
+        token: String? = nil,
+        timeout: TimeInterval = 60
     ) async throws -> Response {
-        try await send(path, method: "POST", body: body, token: token)
+        try await send(path, method: "POST", body: body, token: token, timeout: timeout)
     }
 
     @discardableResult
@@ -99,9 +100,11 @@ struct APIClient {
         _ path: String,
         method: String,
         body: Body?,
-        token: String?
+        token: String?,
+        timeout: TimeInterval = 60
     ) async throws -> Response {
         var request = URLRequest(url: Self.url(base: baseURL, path: path))
+        request.timeoutInterval = timeout
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token {

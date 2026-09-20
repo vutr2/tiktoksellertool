@@ -21,6 +21,7 @@ struct RecordedRequest {
     let method: String?
     let headers: [String: String]
     let body: Data?
+    let timeoutInterval: TimeInterval
 
     /// Header lookup is case-insensitive: URLSession is free to re-case the
     /// field names it was given.
@@ -136,7 +137,8 @@ final class URLProtocolStub: URLProtocol {
                 url: url,
                 method: request.httpMethod,
                 headers: request.allHTTPHeaderFields ?? [:],
-                body: Self.readBody(request)
+                body: Self.readBody(request),
+                timeoutInterval: request.timeoutInterval
             ),
             host: host
         )
