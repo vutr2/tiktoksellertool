@@ -2,13 +2,16 @@ import { randomUUID } from "node:crypto";
 import { verifySession, assertActiveOrganization } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ProductError, readLimitedBody } from "@/lib/products";
-import { json, error } from "@/lib/http";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { json, error, tooMany } from "@/lib/http";
 
 /** Reports stay with the owned product, including automatic account deletion. */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   let claims;
   try { claims = await verifySession(request.headers.get("authorization")); }
   catch { return error("Not authorized.", 401); }
+  const throttle = await rateLimit(`report:org:${claims.orgId}`, RATE_LIMITS.reportPerOrg);
+  if (!throttle.allowed) return tooMany("Too many reports. Please try again later.", throttle.retryAfterSeconds);
   const { id } = await context.params;
   let body;
   try { body = JSON.parse((await readLimitedBody(request, 32768)).toString("utf8")); }

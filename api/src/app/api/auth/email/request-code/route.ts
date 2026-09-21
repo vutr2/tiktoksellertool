@@ -2,7 +2,8 @@ import { createHash, randomInt } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendOtpEmail } from "@/lib/email";
 import { reviewAccount } from "@/lib/env";
-import { json, error } from "@/lib/http";
+import { rateLimit, clientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { json, error, tooMany } from "@/lib/http";
 
 const CODE_TTL_MINUTES = 10;
 
@@ -30,6 +31,12 @@ export async function POST(request: Request) {
 
   // App Review demo account: accept a fixed code, so send nothing here.
   if (reviewAccount.matches(email)) return json({});
+
+  // Throttle by IP and by target address: stops OTP-email bombing and spend.
+  const ip = await rateLimit(`otp:ip:${clientIp(request)}`, RATE_LIMITS.otpPerIp);
+  if (!ip.allowed) return tooMany("Too many requests. Try again later.", ip.retryAfterSeconds);
+  const perEmail = await rateLimit(`otp:email:${email}`, RATE_LIMITS.otpPerEmail);
+  if (!perEmail.allowed) return tooMany("Too many codes requested for this email. Try again later.", perEmail.retryAfterSeconds);
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60_000).toISOString();

@@ -4,7 +4,8 @@ import { upsertUserWithOrg } from "@/lib/users";
 import { signSession } from "@/lib/session";
 import { reviewAccount } from "@/lib/env";
 import { balanceOf, appendEntry } from "@/lib/credits";
-import { json, error } from "@/lib/http";
+import { rateLimit, clientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { json, error, tooMany } from "@/lib/http";
 
 /** How many demo credits the review account is kept topped up to. */
 const REVIEW_CREDITS = 300;
@@ -39,6 +40,11 @@ export async function POST(request: Request) {
   const email = body.email?.trim().toLowerCase();
   const code = body.code?.trim();
   if (!email || !code) return error("Email and code are required.");
+
+  // Throttle verify attempts per IP so codes cannot be brute-forced by cycling
+  // fresh OTP requests (each OTP row already caps its own attempts).
+  const throttle = await rateLimit(`verify:ip:${clientIp(request)}`, RATE_LIMITS.verifyPerIp);
+  if (!throttle.allowed) return tooMany("Too many attempts. Try again later.", throttle.retryAfterSeconds);
 
   // App Review demo account: accept the fixed code, bypassing the emailed OTP.
   if (reviewAccount.matches(email)) {

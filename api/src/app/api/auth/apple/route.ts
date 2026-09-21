@@ -1,7 +1,8 @@
 import { verifyAppleIdentityToken } from "@/lib/apple";
 import { upsertUserWithOrg } from "@/lib/users";
 import { signSession } from "@/lib/session";
-import { json, error } from "@/lib/http";
+import { rateLimit, clientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { json, error, tooMany } from "@/lib/http";
 
 interface Body {
   identityToken?: string;
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) return error("Invalid request body.");
   if (typeof body.identityToken !== "string" || !body.identityToken) return error("Missing identity token.");
+
+  const throttle = await rateLimit(`apple:ip:${clientIp(request)}`, RATE_LIMITS.applePerIp);
+  if (!throttle.allowed) return tooMany("Too many sign-in attempts. Try again later.", throttle.retryAfterSeconds);
 
   let identity;
   try {
