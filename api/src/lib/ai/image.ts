@@ -16,9 +16,15 @@ export class ImageError extends Error {
   /** A timed-out POST may already have created a billable provider task. */
   readonly submissionUnknown: boolean;
   readonly taskId?: string;
+  /** Safe diagnostics only: never attach the provider's raw response or key. */
+  readonly provider?: "xai" | "kling";
+  readonly upstreamStatus?: number;
+  readonly failureReason?: "authentication" | "request_rejected";
 
   constructor(message: string, retryable = true, context: {
     phase?: ImagePhase; submissionUnknown?: boolean; taskId?: string;
+    provider?: "xai" | "kling"; upstreamStatus?: number;
+    failureReason?: "authentication" | "request_rejected";
   } = {}) {
     super(message);
     this.name = "ImageError";
@@ -26,6 +32,9 @@ export class ImageError extends Error {
     this.phase = context.phase;
     this.submissionUnknown = context.submissionUnknown ?? false;
     this.taskId = context.taskId;
+    this.provider = context.provider;
+    this.upstreamStatus = context.upstreamStatus;
+    this.failureReason = context.failureReason;
   }
 }
 
@@ -171,7 +180,7 @@ export class KlingImageClient {
         const retryable = !unknown && json?.code !== 1102 && res.status !== 401 && res.status !== 403;
         throw new ImageError(`Image service error (${res.status}/${json?.code ?? "unknown"}).` +
           (unknown ? " Submission needs checking before retrying." : ""), retryable,
-        { phase, submissionUnknown: unknown, taskId });
+        { phase, submissionUnknown: unknown, taskId, provider: "kling", upstreamStatus: res.status });
       }
       if (!json) throw new ImageError("The image service returned an invalid response." +
         (method === "POST" ? " Submission needs checking before retrying." : " Check this task again."), method !== "POST",
@@ -289,14 +298,36 @@ async function grokImagine(subject: ImageBlob, scene: StudioScene): Promise<Imag
     throw new ImageError("The image service could not be reached. Try again.", true, { phase: "submit" });
   }
   if (!res.ok) {
-    const retryable = res.status >= 500 || res.status === 429;
-    throw new ImageError(`Image service error (${res.status}).`, retryable, { phase: "submit", submissionUnknown: false });
+    // xAI also reports invalid credentials as HTTP 400, not only 401. Inspect
+    // the error locally but never forward/log it: it can echo sensitive input.
+    const raw: unknown = await res.json().catch(() => null);
+    const authentication = res.status === 401 ||
+      (res.status === 400 && /\b(?:incorrect|invalid|expired|revoked) api[ -]?key\b/i.test(providerErrorMessage(raw)));
+    const retryable = !authentication && (res.status >= 500 || res.status === 429);
+    throw new ImageError(authentication
+      ? "Studio is unavailable because the image service could not authenticate. Please contact support."
+      : `Image service error (${res.status}).`, retryable, {
+      phase: "submit", submissionUnknown: false, provider: "xai", upstreamStatus: res.status,
+      failureReason: authentication ? "authentication" : "request_rejected",
+    });
   }
   const json = await res.json().catch(() => null) as { data?: { b64_json?: string; url?: string }[] } | null;
   const entry = json?.data?.[0];
   if (entry?.b64_json) return { data: Buffer.from(entry.b64_json, "base64"), mime: "image/png" };
   if (entry?.url) return new KlingImageClient({ downloadTimeoutMs: 30_000 }).download(entry.url);
   throw new ImageError("The image service returned no image.", true, { phase: "status" });
+}
+
+/** xAI returns both { error: string } and { error: { message: string } }. */
+function providerErrorMessage(raw: unknown): string {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
+  const body = raw as Record<string, unknown>;
+  if (typeof body.error === "string") return body.error;
+  if (body.error && typeof body.error === "object" && !Array.isArray(body.error)) {
+    const message = (body.error as Record<string, unknown>).message;
+    if (typeof message === "string") return message;
+  }
+  return typeof body.message === "string" ? body.message : "";
 }
 
 /** Instruct Grok to keep the product and build the scene around it. */

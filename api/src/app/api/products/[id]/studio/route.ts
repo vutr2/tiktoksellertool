@@ -153,6 +153,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       // Never log the reference image, provider credentials or download URLs.
       console.warn("studio_image_error", {
         phase: e.phase, taskId: e.taskId, submissionUnknown: e.submissionUnknown,
+        provider: e.provider, upstreamStatus: e.upstreamStatus, failureReason: e.failureReason,
       });
       // A provider failure is not an insufficient user-credit balance.
       return error(e.message, e.phase === "wait" ? 504 : 503);

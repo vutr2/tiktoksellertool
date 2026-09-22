@@ -55,6 +55,54 @@ test("Grok receives the original alpha PNG and an explicit frame, without pre-cr
   }
 });
 
+test("Grok credential rejections cannot produce a chargeable image or retry a paid POST", async t => {
+  provider(t, "xai");
+  const sensitiveDetail = "stub-key data:image/png;base64,private-photo";
+  const responses = [
+    { status: 400, body: { code: "invalid-argument", error: `Incorrect API key provided. ${sensitiveDetail}` } },
+    { status: 400, body: { error: { message: `Invalid API key: ${sensitiveDetail}` } } },
+    { status: 401, body: { error: sensitiveDetail } },
+  ];
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    const response = responses[calls++];
+    assert.ok(response, "No automatic paid retry is allowed");
+    return Response.json(response.body, { status: response.status });
+  });
+  for (const response of responses) {
+    await assert.rejects(composeScene(await cutout(), STUDIO_SCENES.BEAUTY[0], "grok-auth-rejection"), error => {
+      assert.ok(error instanceof ImageError);
+      assert.equal(error.retryable, false);
+      assert.equal(error.submissionUnknown, false);
+      assert.equal(error.upstreamStatus, response.status);
+      assert.equal(error.provider, "xai");
+      assert.equal(error.failureReason, "authentication");
+      assert.match(error.message, /could not authenticate/);
+      assert.doesNotMatch(error.message + JSON.stringify(error), /stub-key|private-photo/);
+      return true;
+    });
+  }
+  assert.equal(calls, responses.length);
+});
+
+test("Grok invalid image requests are rejected without misdiagnosing a credential failure", async t => {
+  provider(t, "xai");
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return Response.json({ error: "Invalid image format" }, { status: 400 });
+  });
+  await assert.rejects(composeScene(await cutout(), STUDIO_SCENES.BEAUTY[0], "grok-invalid-image"), error => {
+    assert.ok(error instanceof ImageError);
+    assert.equal(error.retryable, false);
+    assert.equal(error.failureReason, "request_rejected");
+    assert.equal(error.upstreamStatus, 400);
+    assert.doesNotMatch(error.message, /authenticate/);
+    return true;
+  });
+  assert.equal(calls, 1);
+});
+
 function klingOutput(t: TestContext, background: Buffer) {
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit = {}) => {
     if (init.method === "POST") {
