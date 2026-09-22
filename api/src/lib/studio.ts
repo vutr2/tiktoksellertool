@@ -1,6 +1,7 @@
 // Studio scene packs — ported (in English) from tiktok_tools' per-industry
-// `scenes`. The product cutout is composited onto a generated studio backdrop;
-// the product itself is never redrawn (see ai/image.ts).
+// `scenes`. Scene styling is subordinate to product identity. Kling backgrounds
+// are composited locally; Grok edits are guided by preservation instructions
+// and still need visual review (see ai/image.ts).
 //
 // Scenes are code, not data: editing a backdrop means editing a prompt, which
 // goes through review — not a row in the database.
@@ -24,10 +25,15 @@ export type StudioScene = {
   aspect: "1:1" | "4:5" | "9:16";
 };
 
-/** Shared guardrail appended to every compose so the product stays untouched. */
+/** Prompt guidance; only compositing original pixels can enforce preservation. */
 export const PRESERVE_PRODUCT =
-  "Keep the product pixel-identical: do not redraw, recolor, reshape or relight it, " +
-  "and do not alter any text, logo or label. Only build the background and natural shadow around it.";
+  "The supplied product is the source of truth. Preserve its identity, silhouette, proportions, " +
+  "pose, camera angle, colours, materials, texture, seams, closures and all visible components. " +
+  "Keep every logo, label, letter, number and printed graphic exactly as supplied, including " +
+  "placement, spelling and typography. Preserve existing highlights and surface details. " +
+  "Do not redraw, retouch, recolour, reshape, relight, mirror or replace the product; do not " +
+  "invent hidden sides, missing parts, packaging or accessories. Only move the complete product " +
+  "and scale it uniformly to fit the composition. Adapt the environment to the product, not the product to the scene.";
 
 const COMMON_NEGATIVE =
   "text overlay, watermark, extra products, human hands, cluttered props, harsh shadows, " +

@@ -1,16 +1,14 @@
-// Studio images: generate the BACKGROUND ONLY, then composite the seller's
-// real cutout on top (SPEC §8). A diffusion model like Kling redraws whatever
-// reference it is given — a photographed water bottle came back as a Red Bull
-// can — so the product is NEVER sent to it. The original product pixels are
-// pasted over the generated scene here, preserving the label exactly.
+// Kling generates an empty background; the original cutout is composited on it.
+// The existing Grok branch edits the reference photo instead: prompt guidance
+// reduces identity drift but cannot guarantee SPEC §8's original-pixel fidelity.
 
 import sharp from "sharp";
 import { kling } from "../env.ts";
-import { type StudioScene } from "../studio.ts";
+import { PRESERVE_PRODUCT, type StudioScene } from "../studio.ts";
 import { createHash } from "node:crypto";
 import { ImageTaskCache } from "./image-task-cache.ts";
 
-type ImagePhase = "submit" | "status" | "download" | "wait";
+type ImagePhase = "submit" | "status" | "download" | "wait" | "composite";
 
 export class ImageError extends Error {
   readonly retryable: boolean;
@@ -41,6 +39,16 @@ const KLING_ASPECT: Record<string, string> = {
   "1:1": "1:1", "4:5": "3:4", "3:4": "3:4", "9:16": "9:16", "16:9": "16:9",
 };
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+const grokModel = () => process.env.XAI_IMAGE_MODEL ?? "grok-imagine-image-2.0";
+
+/** Includes the actual instructions/model so cache entries follow prompt changes. */
+export function studioRenderFingerprint(scene: StudioScene): object {
+  return process.env.XAI_API_KEY
+    ? { provider: "xai", model: grokModel(), prompt: grokEditPrompt(scene), aspect: KLING_ASPECT[scene.aspect] }
+    : { provider: "kling", model: process.env.KLING_IMAGE_MODEL ?? "kling-v2-1",
+      prompt: backgroundPrompt(scene), negative: backgroundNegative(scene), aspect: KLING_ASPECT[scene.aspect] };
+}
 
 type KlingTask = {
   code?: number;
@@ -201,10 +209,17 @@ const IMAGE_WORK_BUDGET_MS = 180_000;
 
 /** Best-effort resumption until durable jobs are approved; never a background job. */
 export async function composeScene(subject: ImageBlob, scene: StudioScene, cacheKey: string): Promise<ImageBlob> {
+  // xAI Grok Imagine (image edits): send the product and let Grok build the
+  // scene around it. This synchronous branch still has a request deadline.
+  // Grok integrates the product itself, so there is no separate composite step.
+  if (process.env.XAI_API_KEY) {
+    return grokImagine(subject, scene);
+  }
+
   const client = new KlingImageClient();
   const deadline = Date.now() + IMAGE_WORK_BUDGET_MS;
-  const inputHash = createHash("sha256").update(subject.data).update(JSON.stringify(scene))
-    .update(process.env.KLING_IMAGE_MODEL ?? "kling-v2-1").digest("hex");
+  const inputHash = createHash("sha256").update(subject.data)
+    .update(JSON.stringify(studioRenderFingerprint(scene))).digest("hex");
   const cached = tasks.getOrSubmit(cacheKey, inputHash, () => client.submit(subject, scene));
   let taskId: string;
   try {
@@ -239,10 +254,106 @@ export async function composeScene(subject: ImageBlob, scene: StudioScene, cache
     { phase: "wait", taskId });
 }
 
+// Target pixel size per scene aspect, used to crop the generated background.
+const ASPECT_SIZE: Record<string, { width: number; height: number }> = {
+  "1:1": { width: 1024, height: 1024 },
+  "4:5": { width: 1024, height: 1280 },
+  "9:16": { width: 1080, height: 1920 },
+};
+
+/**
+ * xAI Grok Imagine image-edit: send the product cutout and a scene prompt; Grok
+ * places the product into the generated studio scene and returns the result
+ * synchronously. No polling, no separate composite.
+ */
+async function grokImagine(subject: ImageBlob, scene: StudioScene): Promise<ImageBlob> {
+  const base = (process.env.XAI_BASE_URL ?? "https://api.x.ai/v1").replace(/\/+$/, "");
+  const model = grokModel();
+  const dataUrl = `data:${subject.mime};base64,${subject.data.toString("base64")}`;
+  let res: Response;
+  try {
+    res = await fetch(`${base}/images/edits`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.XAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model, prompt: grokEditPrompt(scene),
+        image: { type: "image_url", url: dataUrl },
+        // Both providers support 3:4, the nearest portrait ratio to a 4:5 scene.
+        // Request the composition directly; a cover-crop could cut off the item.
+        aspect_ratio: KLING_ASPECT[scene.aspect] ?? "1:1",
+        response_format: "b64_json",
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch {
+    throw new ImageError("The image service could not be reached. Try again.", true, { phase: "submit" });
+  }
+  if (!res.ok) {
+    const retryable = res.status >= 500 || res.status === 429;
+    throw new ImageError(`Image service error (${res.status}).`, retryable, { phase: "submit", submissionUnknown: false });
+  }
+  const json = await res.json().catch(() => null) as { data?: { b64_json?: string; url?: string }[] } | null;
+  const entry = json?.data?.[0];
+  if (entry?.b64_json) return { data: Buffer.from(entry.b64_json, "base64"), mime: "image/png" };
+  if (entry?.url) return new KlingImageClient({ downloadTimeoutMs: 30_000 }).download(entry.url);
+  throw new ImageError("The image service returned no image.", true, { phase: "status" });
+}
+
+/** Instruct Grok to keep the product and build the scene around it. */
+function grokEditPrompt(scene: StudioScene): string {
+  return [
+    "Create one polished, photorealistic e-commerce product photograph from the supplied PNG cutout.",
+    "INPUT: The PNG has a transparent alpha background. Transparent pixels are empty space for the new scene, " +
+      "not a white rectangle, black backdrop or checkerboard to reproduce. Preserve the cutout's clean edges " +
+      "and fine details; do not add a matte, outline, halo or sticker border.",
+    `PRODUCT IDENTITY — highest priority: ${PRESERVE_PRODUCT}`,
+    "FRAMING: Show the entire supplied product with all edges and parts inside the frame. Make it the clear " +
+      "hero, visually centred with balanced negative space and roughly 8–12% breathing room at the limiting " +
+      "edges. Preserve its original aspect ratio and perspective; never crop, stretch, rotate or tilt it to " +
+      "fit. Keep the label readable and unobstructed. One composition, not a collage, split screen or comparison.",
+    "PLACEMENT AND SHADOWS: Ground the product naturally on a plausible supporting surface. Add a soft, " +
+      "tight contact shadow at the real contact points and a restrained cast shadow extending onto the " +
+      "surface, consistent with the light direction and product scale. Match the scene lighting to the " +
+      "existing product highlights. Keep added shadows outside the product silhouette. No floating, " +
+      "sinking into the surface, detached shadows or heavy artificial drop-shadow outlines. For a white " +
+      "studio scene, keep the background clean white and the contact shadow very subtle. Any reflection " +
+      "must be faint and subordinate, never resemble a second product or invented label text.",
+    `SCENE: ${scene.prompt}`,
+    "The scene specifies only the environment. If its pose, viewpoint, props or lighting would require " +
+      "changing the supplied product, adapt the environment and retain the original product view.",
+    "FINISH: Premium catalogue photography, crisp product detail, natural material rendering, controlled " +
+      "contrast and a quiet background. Keep any scene props in the background, away from the silhouette. " +
+      "Return the finished photograph with the studio background filled in, not another transparent cutout.",
+    `AVOID: ${scene.negative}, substitute product, extra product copies, invented lettering, unreadable label, ` +
+      "cropped product, warped geometry, new accessories, people, hands, typography overlays, promotional " +
+      "badges, watermarks, borders, checkerboard, plastic-looking retouching, oversharpening, blown highlights.",
+  ].join("\n\n");
+}
+
+/** Cover-crop a background to the scene's target aspect. */
+async function cropToAspect(image: ImageBlob, aspect: string): Promise<ImageBlob> {
+  const size = ASPECT_SIZE[aspect] ?? ASPECT_SIZE["1:1"];
+  try {
+    const out = await sharp(image.data).resize({ ...size, fit: "cover" }).png().toBuffer();
+    return { data: out, mime: "image/png" };
+  } catch {
+    return image;
+  }
+}
+
 // The product must NOT appear in the generated scene — it is composited on
 // afterwards. These push the model toward an empty studio surface/backdrop.
 function backgroundPrompt(scene: StudioScene): string {
-  return `${scene.prompt}\n\nRender ONLY the empty scene and background: the surface, lighting and setting, with clear empty space in the centre where a product will be placed later. Do not draw any product, bottle, can, jar, box, package or item.`;
+  return [
+    "Photograph an EMPTY e-commerce studio set. The product will be composited later from a transparent PNG; " +
+      "do not render the product, its silhouette, a placeholder, product reflection or product-shaped shadow.",
+    `Use this brief ONLY for the surface, backdrop and atmosphere: ${scene.prompt}`,
+    "Reserve the central 80% of the frame as clear placement space with an unobstructed supporting surface " +
+      "across the lower third. Keep the surface broad and level, the viewpoint natural, the light soft and " +
+      "diffused, and any background props small and away from the centre. No extreme perspective or busy horizon " +
+      "behind the future label. Premium photorealistic catalogue quality, clean materials, controlled highlights, " +
+      "balanced negative space and subtle surface shading. Render a filled-in background, not transparency or a checkerboard.",
+  ].join("\n\n");
 }
 
 function backgroundNegative(scene: StudioScene): string {
@@ -252,7 +363,7 @@ function backgroundNegative(scene: StudioScene): string {
 /**
  * Composite the seller's cutout (PNG with alpha) onto the generated scene,
  * centred and resting slightly below centre so it reads as sitting on the
- * surface. sharp keeps the product pixels exactly as photographed.
+ * surface. The original cutout is resized uniformly, never generated by AI.
  */
 async function compositeProduct(subject: ImageBlob, background: ImageBlob): Promise<ImageBlob> {
   try {
@@ -271,11 +382,13 @@ async function compositeProduct(subject: ImageBlob, background: ImageBlob): Prom
     const top = Math.round((height - (pm.height ?? target)) * 0.58);
     const out = await bg
       .composite([{ input: product, left: Math.max(0, left), top: Math.max(0, top) }])
-      .jpeg({ quality: 90 })
+      .png()
       .toBuffer();
-    return { data: out, mime: "image/jpeg" };
+    return { data: out, mime: "image/png" };
   } catch {
-    // Compositing failure must not lose the paid render; return the scene as-is.
-    return background;
+    // A background without the customer's product is not successful output.
+    // Throw before the route saves the asset or charges the customer's credits.
+    throw new ImageError("Could not place the product in this scene. No credits were charged for this image.", true,
+      { phase: "composite" });
   }
 }

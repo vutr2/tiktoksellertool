@@ -12,12 +12,12 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "../supabase.ts";
 import { CUTOUT_BUCKET } from "../products.ts";
-import { PRESERVE_PRODUCT, type StudioScene } from "../studio.ts";
-import { ImageError, type ImageBlob } from "./image.ts";
+import { type StudioScene } from "../studio.ts";
+import { ImageError, studioRenderFingerprint, type ImageBlob } from "./image.ts";
 
 // Bump when the scene prompts or compositing change so stale images aren't reused.
-// v2: switched from Kling redrawing the product to background-only + compositing.
-const CACHE_VERSION = "v2";
+// v3: alpha-aware edit prompt, product framing/shadows, actual provider identity.
+const CACHE_VERSION = "v3";
 
 /** Stable hash of everything that determines the generated pixels. */
 export function studioContentHash(input: {
@@ -25,9 +25,8 @@ export function studioContentHash(input: {
   scene: StudioScene;
   index: number;
 }): string {
-  const model = process.env.KLING_IMAGE_MODEL ?? "kling-v2-1";
   return createHash("sha256")
-    .update(JSON.stringify([CACHE_VERSION, model, input.index, input.scene, PRESERVE_PRODUCT]))
+    .update(JSON.stringify([CACHE_VERSION, studioRenderFingerprint(input.scene), input.index, input.scene]))
     .update(input.cutout)
     .digest("hex");
 }

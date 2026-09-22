@@ -1,10 +1,40 @@
-import { test } from "node:test";
+import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
 import { studioContentHash, readStudioCache, writeStudioCache } from "../../src/lib/ai/image-content-cache.ts";
 import { STUDIO_SCENES } from "../../src/lib/studio.ts";
+import { studioRenderFingerprint } from "../../src/lib/ai/image.ts";
+
+const originalXAIKey = process.env.XAI_API_KEY;
+before(() => { delete process.env.XAI_API_KEY; });
+after(() => {
+  if (originalXAIKey === undefined) delete process.env.XAI_API_KEY;
+  else process.env.XAI_API_KEY = originalXAIKey;
+});
 
 const input = { cutout: Buffer.from("cutout"), scene: STUDIO_SCENES.BEAUTY[0], index: 0 };
+
+test("Grok cache follows the actual provider, model, edit instructions and aspect ratio", () => {
+  const klingHash = studioContentHash(input);
+  const previousModel = process.env.XAI_IMAGE_MODEL;
+  try {
+    process.env.XAI_API_KEY = "stub-only";
+    delete process.env.XAI_IMAGE_MODEL;
+    const grokHash = studioContentHash(input);
+    const fingerprint = studioRenderFingerprint(input.scene) as { provider: string; model: string; prompt: string };
+    assert.equal(fingerprint.provider, "xai");
+    assert.equal(fingerprint.model, "grok-imagine-image-2.0");
+    assert.ok(fingerprint.prompt.includes("transparent alpha background"));
+    assert.notEqual(grokHash, klingHash);
+    assert.notEqual(studioContentHash({ ...input, scene: { ...input.scene, aspect: "9:16" } }), grokHash);
+    process.env.XAI_IMAGE_MODEL = "different-stub-model";
+    assert.notEqual(studioContentHash(input), grokHash);
+  } finally {
+    delete process.env.XAI_API_KEY;
+    if (previousModel === undefined) delete process.env.XAI_IMAGE_MODEL;
+    else process.env.XAI_IMAGE_MODEL = previousModel;
+  }
+});
 
 test("identical render inputs hit one content key; new variants require a new render", () => {
   const hash = studioContentHash(input);
