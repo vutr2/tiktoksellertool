@@ -16,7 +16,8 @@ import { PRESERVE_PRODUCT, type StudioScene } from "../studio.ts";
 import { ImageError, type ImageBlob } from "./image.ts";
 
 // Bump when the scene prompts or compositing change so stale images aren't reused.
-const CACHE_VERSION = "v1";
+// v2: switched from Kling redrawing the product to background-only + compositing.
+const CACHE_VERSION = "v2";
 
 /** Stable hash of everything that determines the generated pixels. */
 export function studioContentHash(input: {

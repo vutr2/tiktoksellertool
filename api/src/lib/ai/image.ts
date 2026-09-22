@@ -1,8 +1,12 @@
-// Kling redraws its reference image; prompt instructions do not guarantee
-// original product pixels. See SPEC §8 before claiming label preservation.
+// Studio images: generate the BACKGROUND ONLY, then composite the seller's
+// real cutout on top (SPEC §8). A diffusion model like Kling redraws whatever
+// reference it is given — a photographed water bottle came back as a Red Bull
+// can — so the product is NEVER sent to it. The original product pixels are
+// pasted over the generated scene here, preserving the label exactly.
 
+import sharp from "sharp";
 import { kling } from "../env.ts";
-import { PRESERVE_PRODUCT, type StudioScene } from "../studio.ts";
+import { type StudioScene } from "../studio.ts";
 import { createHash } from "node:crypto";
 import { ImageTaskCache } from "./image-task-cache.ts";
 
@@ -61,15 +65,17 @@ export class KlingImageClient {
     this.downloadTimeoutMs = options.downloadTimeoutMs ?? 20_000;
   }
 
+  // `subject` is intentionally unused: the product is never sent to Kling. It
+  // stays in the signature so callers (and tests) pass the same arguments.
   async submit(subject: ImageBlob, scene: StudioScene): Promise<{ taskId: string; model: string }> {
+    void subject;
     const model = process.env.KLING_IMAGE_MODEL ?? "kling-v2-1";
+    // Text-to-image of the EMPTY scene only. No reference image, so nothing to
+    // redraw; the real product is composited on afterwards.
     const json = await this.call("POST", "/v1/images/generations", {
       model_name: model,
-      prompt: `${scene.prompt}\n\n${PRESERVE_PRODUCT}`,
-      negative_prompt: scene.negative,
-      image: subject.data.toString("base64"),
-      image_reference: "subject",
-      image_fidelity: 0.9,
+      prompt: backgroundPrompt(scene),
+      negative_prompt: backgroundNegative(scene),
       aspect_ratio: KLING_ASPECT[scene.aspect] ?? "1:1",
       n: 1,
     });
@@ -215,7 +221,10 @@ export async function composeScene(subject: ImageBlob, scene: StudioScene, cache
     if (task.status === "completed") {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
-      return new KlingImageClient({ downloadTimeoutMs: Math.min(20_000, remaining) }).download(task.url);
+      const background = await new KlingImageClient({ downloadTimeoutMs: Math.min(20_000, remaining) }).download(task.url);
+      // Paste the real product over the generated scene — this is what keeps
+      // the label pixel-accurate instead of a hallucinated look-alike.
+      return compositeProduct(subject, background);
     }
     if (task.status === "failed") {
       tasks.forget(cacheKey, cached);
@@ -228,4 +237,45 @@ export async function composeScene(subject: ImageBlob, scene: StudioScene, cache
   // billable submission when the first one may still be rendering.
   throw new ImageError("The image is still processing. Completed images are saved; try this style again later to check progress.", true,
     { phase: "wait", taskId });
+}
+
+// The product must NOT appear in the generated scene — it is composited on
+// afterwards. These push the model toward an empty studio surface/backdrop.
+function backgroundPrompt(scene: StudioScene): string {
+  return `${scene.prompt}\n\nRender ONLY the empty scene and background: the surface, lighting and setting, with clear empty space in the centre where a product will be placed later. Do not draw any product, bottle, can, jar, box, package or item.`;
+}
+
+function backgroundNegative(scene: StudioScene): string {
+  return `${scene.negative}, product, bottle, can, jar, box, package, item, object in centre, foreground subject, text, label`;
+}
+
+/**
+ * Composite the seller's cutout (PNG with alpha) onto the generated scene,
+ * centred and resting slightly below centre so it reads as sitting on the
+ * surface. sharp keeps the product pixels exactly as photographed.
+ */
+async function compositeProduct(subject: ImageBlob, background: ImageBlob): Promise<ImageBlob> {
+  try {
+    const bg = sharp(background.data);
+    const meta = await bg.metadata();
+    const width = meta.width ?? 1024;
+    const height = meta.height ?? 1024;
+    // Fit the product to ~68% of the shorter edge, preserving its aspect.
+    const target = Math.round(Math.min(width, height) * 0.68);
+    const product = await sharp(subject.data)
+      .resize({ width: target, height: target, fit: "inside", withoutEnlargement: false })
+      .png()
+      .toBuffer();
+    const pm = await sharp(product).metadata();
+    const left = Math.round((width - (pm.width ?? target)) / 2);
+    const top = Math.round((height - (pm.height ?? target)) * 0.58);
+    const out = await bg
+      .composite([{ input: product, left: Math.max(0, left), top: Math.max(0, top) }])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    return { data: out, mime: "image/jpeg" };
+  } catch {
+    // Compositing failure must not lose the paid render; return the scene as-is.
+    return background;
+  }
 }

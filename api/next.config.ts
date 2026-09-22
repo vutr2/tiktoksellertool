@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
     "@opentelemetry/api",
     "@langfuse/otel",
     "@langfuse/tracing",
+    // Native binary; must stay a runtime require, not be bundled by webpack.
+    "sharp",
   ],
 };
 
