@@ -33,6 +33,7 @@ struct CaptureView: View {
     /// The listing just generated, shown in Review (design step 4).
     @State private var generatedListing: GenerateResultDTO?
     @State private var pendingListing: GenerateResultDTO?
+    @State private var confirmingStartOver = false
 
     private var rules: RulesStore { appEnvironment.rules }
     private var hasRoomForPhoto: Bool {
@@ -82,6 +83,11 @@ struct CaptureView: View {
         }
         .onChange(of: selectedPhoto) { _, photo in
             if let photo { importPhoto(photo) }
+        }
+        .onChange(of: appEnvironment.captureDraft.draft.id) {
+            cutouts = appEnvironment.captureDraft.draft.cutouts
+            latestCutout = cutouts.last
+            camera.resetSeries()
         }
         .sheet(isPresented: $showingCutout) { cutoutReview }
         .sheet(isPresented: $showingRefinement) {
@@ -142,16 +148,24 @@ struct CaptureView: View {
         } message: {
             Text(captureError ?? "")
         }
+        .confirmationDialog("Start a new product?", isPresented: $confirmingStartOver, titleVisibility: .visible) {
+            Button("Start new product", role: .destructive) { startOver() }
+            Button("Keep working", role: .cancel) {}
+        } message: {
+            Text(appEnvironment.captureDraft.draft.savedProduct == nil
+                 ? "This will remove the unfinished draft from this device."
+                 : "Your uploaded product and generated photos will remain in Products.")
+        }
     }
 
-    /// Only appears once there is something to name. Until the server has the
-    /// product, these cutouts live in memory alone — the wording says so.
+    /// The draft is already on disk; uploaded results live in Products too.
     @ViewBuilder private var continueToDetails: some View {
         if !cutouts.isEmpty {
             Button {
                 showingDetails = true
             } label: {
-                Text("Continue with \(cutouts.count) photo\(cutouts.count == 1 ? "" : "s")")
+                Text(appEnvironment.captureDraft.draft.savedProduct == nil
+                     ? "Continue with \(cutouts.count) photo\(cutouts.count == 1 ? "" : "s")" : "Resume product")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -162,6 +176,9 @@ struct CaptureView: View {
             .disabled(isProcessing)
             .padding(.horizontal, 28)
             .padding(.top, 16)
+            Text(appEnvironment.captureDraft.errorMessage ?? "Draft saved on this iPhone")
+                .font(.caption).foregroundStyle(appEnvironment.captureDraft.errorMessage == nil ? .white : .orange)
+                .padding(.horizontal)
         }
     }
 
@@ -170,10 +187,8 @@ struct CaptureView: View {
     private var topBar: some View {
         HStack {
             Button("Start over") {
-                camera.resetSeries()
-                cutouts.removeAll()
-                latestCutout = nil
-                appEnvironment.captureDraft.reset()
+                if appEnvironment.captureDraft.draft.hasContent { confirmingStartOver = true }
+                else { startOver() }
             }
                 .foregroundStyle(.white)
                 .disabled(isProcessing)
@@ -191,6 +206,13 @@ struct CaptureView: View {
             }
         }
         .padding(.horizontal)
+    }
+
+    private func startOver() {
+        camera.resetSeries()
+        cutouts.removeAll()
+        latestCutout = nil
+        appEnvironment.captureDraft.reset()
     }
 
     // MARK: Viewfinder

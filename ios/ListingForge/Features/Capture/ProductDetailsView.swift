@@ -4,9 +4,7 @@
 //
 //  Step 2 of 4 in the design: name the product that was just photographed.
 //
-//  This is where a session-only cutout becomes a real record. Until Continue
-//  succeeds the photo exists nowhere but memory, so the screen never implies
-//  the product is saved before the server says so.
+//  Draft photos/details are saved on this device; Continue uploads the product.
 //
 
 import SwiftData
@@ -39,6 +37,7 @@ struct ProductDetailsView: View {
     @State private var industry: Industry = .beauty
     @State private var showingStudio = false
     @State private var advanceToMarketplaces = false
+    @State private var restoredDraft = false
 
     private var store: ProductStore { appEnvironment.products }
     private var mainCutout: ProductCutout? { cutouts.first }
@@ -89,6 +88,7 @@ struct ProductDetailsView: View {
         .background(Color(.systemGroupedBackground))
         .interactiveDismissDisabled(isSubmitting)
         .task {
+            guard !restoredDraft else { return }
             let draft = appEnvironment.captureDraft.draft
             draftID = draft.id
             name = draft.name
@@ -96,10 +96,18 @@ struct ProductDetailsView: View {
             keyFeatures = draft.keyFeatures
             savedProduct = draft.savedProduct
             hasSubmitted = draft.uploadStarted
+            industry = draft.industry ?? .beauty
+            restoredDraft = true
+            if let product = draft.savedProduct {
+                let step = appEnvironment.productProgress.progress(for: product.id)?.step ?? .studio
+                if step == .listing { showingMarketplaces = true }
+                else { showingStudio = true }
+            }
         }
         .onChange(of: name) { _, value in appEnvironment.captureDraft.draft.name = value }
         .onChange(of: category) { _, value in appEnvironment.captureDraft.draft.category = value }
         .onChange(of: keyFeatures) { _, value in appEnvironment.captureDraft.draft.keyFeatures = value }
+        .onChange(of: industry) { _, value in appEnvironment.captureDraft.draft.industry = value }
         .sheet(isPresented: $showingStudio, onDismiss: {
             if advanceToMarketplaces {
                 advanceToMarketplaces = false
@@ -108,8 +116,8 @@ struct ProductDetailsView: View {
         }) {
             if let product = savedProduct {
                 StudioView(
-                    productID: product.id,
-                    api: appEnvironment.api,
+                    store: appEnvironment.studio(for: product.id),
+                    progress: appEnvironment.productProgress,
                     productName: product.name,
                     thumbnail: mainCutout.flatMap { UIImage(data: $0.pngData) },
                     industry: industry,
@@ -295,9 +303,13 @@ struct ProductDetailsView: View {
             catch { currentStore.errorMessage = "Your product is saved online, but its offline copy could not be saved." }
 
             onCreated(created)
-            // One flow: studio shots first (design step 3), then listing.
+            // Persist the next step before presenting it, so relaunch can resume.
             savedProduct = created
             draftStore.draft.savedProduct = created
+            appEnvironment.productProgress.update(created.id) {
+                $0.industry = industry
+                $0.step = .studio
+            }
             showingStudio = true
         }
     }

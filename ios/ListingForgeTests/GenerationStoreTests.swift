@@ -234,4 +234,42 @@ struct GenerationStoreTests {
         #expect(relaunched.pendingRequest(productID: "p1") == nil)
     }
 
+    @Test("Opening a relaunched listing checks its saved request without a new paid POST")
+    func reopenWithoutSubmitting() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let firstServer = StubbedServer(.transportFailure(URLError(.timedOut)),
+            .json(#"{"error":"still running"}"#, status: 409))
+        let first = GenerationStore(api: firstServer.client, cacheDirectory: directory)
+        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        let pending = try #require(first.pendingRequest(productID: "p1"))
+        let secondServer = StubbedServer(.json(generated))
+        let relaunched = GenerationStore(api: secondServer.client, cacheDirectory: directory)
+        let recovered = await relaunched.recoverPending(productID: "p1", token: "jwt")
+        #expect(recovered?.creditsCharged == 6)
+        #expect(secondServer.requests.map(\.method) == ["GET"])
+        #expect(secondServer.lastRequest?.url?.query == "requestId=" + pending.requestId.uuidString)
+        #expect(relaunched.pendingRequest(productID: "p1") == nil)
+    }
+
+    @Test("A product with paid photos stays reachable offline before its first listing exists")
+    func offlineProductBeforeListing() async {
+        let server = StubbedServer(.transportFailure(URLError(.notConnectedToInternet)))
+        let store = GenerationStore(api: server.client)
+        let product = ListingProductDTO(id: "p1", name: "Saved product", category: nil)
+        let listing = await store.loadAssets(productID: "p1", token: "jwt", savedProduct: product)
+        #expect(listing?.product == product)
+        #expect(store.listingLoadWarning != nil)
+        #expect(server.requests.map(\.method) == ["GET"])
+    }
+
+    @Test("A revoked product is not reopened through the offline gallery fallback")
+    func unavailableProductCannotFallback() async {
+        let server = StubbedServer(.json(#"{"error":"Not authorized"}"#, status: 403))
+        let store = GenerationStore(api: server.client)
+        let listing = await store.loadAssets(productID: "p1", token: "jwt",
+            savedProduct: ListingProductDTO(id: "p1", name: "Saved product", category: nil))
+        #expect(listing == nil)
+    }
+
 }

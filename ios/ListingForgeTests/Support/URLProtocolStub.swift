@@ -203,6 +203,7 @@ final class URLProtocolStub: URLProtocol {
 final class StubbedServer {
     let baseURL: URL
     let client: APIClient
+    let session: URLSession
 
     private let host: String
 
@@ -217,7 +218,8 @@ final class StubbedServer {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]
-        client = APIClient(baseURL: baseURL, session: URLSession(configuration: configuration))
+        session = URLSession(configuration: configuration)
+        client = APIClient(baseURL: baseURL, session: session)
     }
 
     var requests: [RecordedRequest] { StubRegistry.shared.requests(for: host) }

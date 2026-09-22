@@ -205,10 +205,17 @@ final class GenerationStore {
         } catch { return nil }
     }
 
+    /// Reopening a saved draft first checks its existing request. Never start a
+    /// new paid generation merely because the user opened the screen again.
+    func recoverPending(productID: String, token: String) async -> GenerateResultDTO? {
+        guard !isInvalidated, !isGenerating, let pending = pendingRequest(productID: productID) else { return nil }
+        return await recover(pending, token: token, issued: generateToken)
+    }
+
     /// Loads a listing that was generated earlier, so it can be reopened after
     /// the app was closed. Credits were charged for this work; it has to still
     /// be reachable (Guideline 2.1).
-    func loadAssets(productID: String, token: String) async -> ListingAssetsDTO? {
+    func loadAssets(productID: String, token: String, savedProduct: ListingProductDTO? = nil) async -> ListingAssetsDTO? {
         guard !isInvalidated else { return nil }
         errorMessage = nil
         listingLoadWarning = nil
@@ -229,6 +236,12 @@ final class GenerationStore {
             if let cached = cachedListing(productID: productID) {
                 listingLoadWarning = "Showing your saved offline copy. Connect to refresh this listing."
                 return cached
+            }
+            if let savedProduct, savedProduct.id == productID {
+                // A product can have paid Studio photos before its first text
+                // listing exists. Keep the gallery reachable while offline.
+                listingLoadWarning = "Connect to load listing content. You can still open Studio photos saved on this device."
+                return ListingAssetsDTO(product: savedProduct, assets: [])
             }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return nil

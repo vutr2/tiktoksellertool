@@ -22,6 +22,8 @@ final class AppEnvironment {
     private(set) var generation: GenerationStore
     let aiConsent = AIConsent()
     private(set) var captureDraft = CaptureDraftStore()
+    private(set) var productProgress = ProductProgressStore()
+    private var studioStores: [String: StudioStore] = [:]
     private(set) var accountCache: AccountCache?
     private(set) var cacheError: String?
 
@@ -39,6 +41,8 @@ final class AppEnvironment {
             self.products.invalidate()
             self.generation.invalidate()
             self.captureDraft.invalidate()
+            self.productProgress.invalidate()
+            self.studioStores.values.forEach { $0.invalidate() }
             self.aiConsent.revoke()
             try self.accountCache?.erase()
             try AccountCache.removeLegacyUnownedCache()
@@ -66,18 +70,31 @@ final class AppEnvironment {
         if case let .signedIn(user) = auth.state { useAccount(user) }
     }
 
+    func studio(for productID: String) -> StudioStore {
+        let key = productID.lowercased()
+        if let store = studioStores[key] { return store }
+        let store = StudioStore(api: api, productID: productID,
+            cacheDirectory: accountCache?.directory.appendingPathComponent("studio", isDirectory: true))
+        studioStores[key] = store
+        return store
+    }
+
     private func useAccount(_ user: UserDTO?) {
         billing.useAccount(userID: user?.id, token: auth.token)
         guard user?.id != accountCache?.userID || cacheError != nil else { return }
         products.invalidate()
         generation.invalidate()
         captureDraft.invalidate()
+        productProgress.invalidate()
+        studioStores.values.forEach { $0.invalidate() }
+        studioStores = [:]
         accountCache = nil
         cacheError = nil
         aiConsent.useAccount(user?.id)
         products = ProductStore(api: api)
         generation = GenerationStore(api: api)
         captureDraft = CaptureDraftStore()
+        productProgress = ProductProgressStore()
         guard let user else { return }
         do {
             try AccountCache.removeLegacyUnownedCache()
@@ -86,6 +103,7 @@ final class AppEnvironment {
             products = ProductStore(api: api, cacheDirectory: directory)
             generation = GenerationStore(api: api, cacheDirectory: directory)
             captureDraft = CaptureDraftStore(directory: directory)
+            productProgress = ProductProgressStore(directory: directory)
             accountCache = cache
         } catch {
             cacheError = "Your local product cache could not be opened. Try again or sign out."

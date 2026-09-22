@@ -11,6 +11,8 @@ struct ProductsView: View {
     @State private var openError: String?
     @State private var cacheWarning: String?
     @State private var loadedEmptyList = false
+    @State private var showingDraft = false
+    @State private var completedDraft: GenerateResultDTO?
 
     private var store: ProductStore { appEnvironment.products }
     private var hasProducts: Bool {
@@ -26,7 +28,7 @@ struct ProductsView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if hasProducts {
+                if hasProducts || appEnvironment.captureDraft.draft.hasContent {
                     list
                 } else if store.isLoading {
                     ProgressView("Loading products…")
@@ -58,6 +60,19 @@ struct ProductsView: View {
                            failures: opened.listing.failures,
                            notice: opened.notice)
             }
+            .sheet(isPresented: $showingDraft, onDismiss: {
+                if let result = completedDraft {
+                    completedDraft = nil
+                    appEnvironment.captureDraft.reset()
+                    openedListing = OpenedListing(listing: .generated(result, productName: result.facts.suggestedName), notice: nil)
+                }
+            }) {
+                ProductDetailsView(cutouts: appEnvironment.captureDraft.draft.cutouts,
+                    onCreated: { _ in }, onGenerated: { result in
+                        completedDraft = result
+                        showingDraft = false
+                    })
+            }
             .alert("Couldn’t open listing", isPresented: Binding(
                 get: { openError != nil },
                 set: { if !$0 { openError = nil } }
@@ -71,6 +86,18 @@ struct ProductsView: View {
 
     private var list: some View {
         List {
+            if appEnvironment.captureDraft.draft.hasContent {
+                Section("Continue working") {
+                    Button { showingDraft = true } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("Resume draft", systemImage: "arrow.clockwise")
+                            Text(appEnvironment.captureDraft.draft.name.isEmpty ? "Your captured product" : appEnvironment.captureDraft.draft.name)
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            Text("Draft saved on this iPhone").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
             if let message = store.errorMessage {
                 Label("Showing saved products. \(message)", systemImage: "wifi.exclamationmark")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -133,9 +160,15 @@ struct ProductsView: View {
         let requestedGeneration = appEnvironment.generation
         isOpening = true
         openError = nil
+        let savedProduct: ListingProductDTO?
+        if let product = store.products.first(where: { $0.id == productID }) {
+            savedProduct = ListingProductDTO(id: product.id, name: product.name, category: product.category)
+        } else if let product = cached.first(where: { $0.serverID == productID }) {
+            savedProduct = ListingProductDTO(id: product.serverID, name: product.name, category: product.category)
+        } else { savedProduct = nil }
         Task {
             defer { isOpening = false }
-            let listing = await requestedGeneration.loadAssets(productID: productID, token: token)
+            let listing = await requestedGeneration.loadAssets(productID: productID, token: token, savedProduct: savedProduct)
             guard !Task.isCancelled, appEnvironment.auth.token == token,
                   appEnvironment.generation === requestedGeneration else { return }
             guard let listing else {
@@ -144,7 +177,7 @@ struct ProductsView: View {
             }
             var notice = requestedGeneration.listingLoadWarning
             do {
-                try mirrorAssets(listing)
+                if notice == nil { try mirrorAssets(listing) }
             } catch {
                 notice = [notice, "This device could not update its offline product cache."].compactMap { $0 }.joined(separator: " ")
             }

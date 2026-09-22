@@ -63,11 +63,21 @@ struct ReviewView: View {
     @State private var copiedAssetID: String?
     @State private var showStudio = false
     @State private var showScripts = false
+    @State private var showMarketplaces = false
+    @State private var advanceToListing = false
+    @State private var resumedListing: GenerateResultDTO?
+
+    private var listingAssets: [ReviewAsset] {
+        // Studio images have their own gallery. They are not text assets or
+        // marketplaces, and must not render as empty "Pass" cards here.
+        (resumedListing?.assets.map(ReviewAsset.init) ?? assets).filter { $0.type != "image" }
+    }
+    private var listingFailures: [GenerationFailureDTO] { resumedListing?.failures ?? failures }
 
     private var marketplaces: [String] {
         var seen: [String] = []
-        for asset in assets where !seen.contains(asset.marketplace) { seen.append(asset.marketplace) }
-        for failure in failures where !seen.contains(failure.marketplace) { seen.append(failure.marketplace) }
+        for asset in listingAssets where !seen.contains(asset.marketplace) { seen.append(asset.marketplace) }
+        for failure in listingFailures where !seen.contains(failure.marketplace) { seen.append(failure.marketplace) }
         return seen
     }
 
@@ -78,34 +88,34 @@ struct ReviewView: View {
 
     private var shown: [ReviewAsset] {
         guard let current else { return [] }
-        return assets.filter { $0.marketplace == current }
+        return listingAssets.filter { $0.marketplace == current }
     }
 
     private var currentFailure: GenerationFailureDTO? {
         guard let current else { return nil }
-        return failures.first { $0.marketplace == current }
+        return listingFailures.first { $0.marketplace == current }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
+            if productID != nil { savedWorkActions }
+            if let notice {
+                Label(notice, systemImage: "wifi.exclamationmark")
+                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 20)
+            }
 
             if marketplaces.isEmpty {
                 ContentUnavailableView(
-                    "Nothing generated yet",
+                    "Your product is saved",
                     systemImage: "doc.text",
-                    description: Text("Generate a listing to see it here.")
+                    description: Text("Open your Studio photos or continue creating this listing whenever you’re ready.")
                 )
             } else {
                 chips
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        if let notice {
-                            Label(notice, systemImage: "wifi.exclamationmark")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
                         Text("AI-generated content. Check product facts and marketplace requirements before publishing.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -126,9 +136,23 @@ struct ReviewView: View {
                 ContentReportView(productID: productID, asset: asset)
             }
         }
-        .sheet(isPresented: $showStudio) {
+        .sheet(isPresented: $showStudio, onDismiss: {
+            if advanceToListing { advanceToListing = false; showMarketplaces = true }
+        }) {
             if let productID {
-                StudioView(productID: productID, api: appEnvironment.api)
+                StudioView(store: appEnvironment.studio(for: productID), progress: appEnvironment.productProgress,
+                           productName: productName, onContinue: { advanceToListing = true })
+            }
+        }
+        .sheet(isPresented: $showMarketplaces) {
+            if let productID {
+                MarketplacesView(productID: productID) { result in
+                    resumedListing = result
+                    showMarketplaces = false
+                    if appEnvironment.captureDraft.draft.savedProduct?.id.lowercased() == productID.lowercased() {
+                        appEnvironment.captureDraft.reset()
+                    }
+                }
             }
         }
         .sheet(isPresented: $showScripts) {
@@ -139,6 +163,21 @@ struct ReviewView: View {
     }
 
     // MARK: Header
+
+    private var savedWorkActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(productName).font(.headline)
+            Button { showStudio = true } label: {
+                Label("Studio photos", systemImage: "photo.on.rectangle.angled")
+            }
+            Button { showMarketplaces = true } label: {
+                Label(listingAssets.isEmpty ? "Continue listing" : "Generate more listing content", systemImage: "doc.text")
+            }
+        }
+        .buttonStyle(.bordered)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20).padding(.vertical, 12)
+    }
 
     private var header: some View {
         HStack {
@@ -279,8 +318,8 @@ struct ReviewView: View {
     // MARK: Status
 
     private func worstStatus(for marketplace: String) -> ComplianceStatus {
-        if failures.contains(where: { $0.marketplace == marketplace }) { return .fail }
-        let statuses = assets.filter { $0.marketplace == marketplace }.map(\.displayedStatus)
+        if listingFailures.contains(where: { $0.marketplace == marketplace }) { return .fail }
+        let statuses = listingAssets.filter { $0.marketplace == marketplace }.map(\.displayedStatus)
         if statuses.isEmpty { return .fail }
         if statuses.contains(.fail) { return .fail }
         if statuses.contains(.warn) { return .warn }

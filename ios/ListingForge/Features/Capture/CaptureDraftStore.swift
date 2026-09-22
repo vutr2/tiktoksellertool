@@ -7,9 +7,13 @@ struct CaptureDraft: Codable {
     var name = ""
     var category = ""
     var keyFeatures = ""
+    // Optional so drafts saved by older app versions still decode.
+    var industry: Industry?
     var savedProduct: ProductDTO?
     /// Once the server may have seen the draft, its content is immutable on retry.
     var uploadStarted = false
+
+    var hasContent: Bool { !cutouts.isEmpty || !name.isEmpty || savedProduct != nil }
 }
 
 @MainActor

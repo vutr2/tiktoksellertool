@@ -118,4 +118,68 @@ struct StudioStoreTests {
         #expect(store.errorMessage == nil)
         #expect(!store.isGenerating)
     }
+
+    @Test("Relaunch restores paid output, then checks the server before generating only missing variations")
+    func relaunchPartialBatch() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let firstServer = StubbedServer(catalog(), generated(0), .transportFailure(URLError(.timedOut)))
+        let first = StudioStore(api: firstServer.client, productID: "product", cacheDirectory: directory)
+        await generate(first)
+        first.invalidate()
+
+        let secondServer = StubbedServer(catalog([0, 1]), generated(2))
+        let relaunched = StudioStore(api: secondServer.client, productID: "product", cacheDirectory: directory)
+        #expect(relaunched.results.map(\.index) == [0])
+        #expect(secondServer.requests.isEmpty, "Restoring local state cannot start paid work")
+        await generate(relaunched)
+        #expect(secondServer.requests.map(\.method) == ["GET", "POST"])
+        #expect(secondServer.lastRequest?.jsonObject?["index"] as? Int == 2)
+        #expect(relaunched.results.map(\.index) == [0, 1, 2])
+    }
+
+    @Test("An expired preview URL cannot make a saved paid image eligible for generation again")
+    func unavailablePreviewIsStillSaved() async {
+        let saved = StubResponse.json(#"{"creditsPerImage":5,"catalog":{},"images":[{"sceneId":"marble_podium","index":0,"assetId":"saved","url":null}]}"#)
+        let server = StubbedServer(saved, saved)
+        let store = StudioStore(api: server.client, productID: "product")
+        await store.load(token: "jwt")
+        #expect(store.results.count == 1)
+        #expect(store.uncachedCount(sceneID: "marble_podium", count: 1) == 0)
+        await store.generate(industry: .beauty, sceneID: "marble_podium", count: 1, token: "jwt")
+        #expect(server.requests.map(\.method) == ["GET", "GET"])
+    }
+
+    @Test("Switching accounts invalidates Studio and stops subsequent paid requests")
+    func invalidatedAccount() async {
+        let server = StubbedServer(catalog(), generated(0))
+        let store = StudioStore(api: server.client, productID: "product")
+        store.invalidate()
+        await store.load(token: "old-account")
+        await generate(store)
+        #expect(server.requests.isEmpty)
+        #expect(store.results.isEmpty)
+    }
+
+    @Test("A saved paid photo opens after relaunch without its expiring URL, isolated from other accounts")
+    func offlinePhoto() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let bytes = Data("saved-provider-image".utf8)
+        let server = StubbedServer(StubResponse(body: bytes, headers: ["Content-Type": "image/png"]))
+        let first = StudioStore(api: server.client, productID: "p1", cacheDirectory: directory, imageSession: server.session)
+        let photo = StudioImage(sceneId: "marble_podium", index: 0, assetId: "paid-photo",
+            url: server.baseURL.appendingPathComponent("photo.png").absoluteString)
+        #expect(try await first.imageData(for: photo) == bytes)
+        let withoutURL = StudioImage(sceneId: photo.sceneId, index: 0, assetId: photo.assetId, url: nil)
+        let relaunched = StudioStore(api: server.client, productID: "p1", cacheDirectory: directory, imageSession: server.session)
+        #expect(try await relaunched.imageData(for: withoutURL) == bytes)
+        #expect(server.requests.count == 1)
+        #expect(server.requests.first?.method == "GET")
+        let differentAccount = StudioStore(api: server.client, productID: "p1",
+            cacheDirectory: directory.appendingPathComponent("other-account"), imageSession: server.session)
+        await #expect(throws: (any Error).self) { try await differentAccount.imageData(for: withoutURL) }
+        relaunched.invalidate()
+        await #expect(throws: (any Error).self) { try await relaunched.imageData(for: withoutURL) }
+    }
 }

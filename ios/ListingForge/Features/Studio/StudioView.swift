@@ -19,6 +19,7 @@ struct StudioView: View {
     @State private var angles = 3
     @State private var saveNotice: String?
     @State private var generationTask: Task<Void, Never>?
+    private let progress: ProductProgressStore
 
     let productName: String
     let thumbnail: UIImage?
@@ -29,11 +30,15 @@ struct StudioView: View {
 
     private let angleOptions = [1, 3, 5]
 
-    init(productID: String, api: APIClient, productName: String = "Your product",
+    init(store: StudioStore, progress: ProductProgressStore, productName: String = "Your product",
          thumbnail: UIImage? = nil, industry: Industry = .beauty, stepLabel: String? = nil,
          onContinue: (() -> Void)? = nil) {
-        _store = State(initialValue: StudioStore(api: api, productID: productID))
-        _industry = State(initialValue: industry)
+        let saved = progress.progress(for: store.productID)
+        _store = State(initialValue: store)
+        _industry = State(initialValue: saved?.industry ?? industry)
+        _selectedStyle = State(initialValue: saved?.styleID)
+        _angles = State(initialValue: [1, 3, 5].contains(saved?.angles ?? 3) ? saved?.angles ?? 3 : 3)
+        self.progress = progress
         self.productName = productName
         self.thumbnail = thumbnail
         self.stepLabel = stepLabel
@@ -61,6 +66,9 @@ struct StudioView: View {
                         if let message = store.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red)
                         }
+                        if let message = store.cacheWarning ?? progress.errorMessage {
+                            Text(message).font(.footnote).foregroundStyle(.orange)
+                        }
                     }
                     .padding(20)
                 }
@@ -70,19 +78,39 @@ struct StudioView: View {
             .navigationTitle("Studio shots")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        Task { if let token { await store.load(token: token) } }
+                    } label: { Image(systemName: "arrow.clockwise") }
+                    .accessibilityLabel("Refresh saved photos")
+                    .disabled(store.isGenerating || store.isLoading)
+                }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
                 if let stepLabel { ToolbarItem(placement: .principal) { Text(stepLabel).foregroundStyle(.secondary) } }
             }
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 if !store.isGenerating, let token { await store.load(token: token) }
-                if selectedStyle == nil { selectedStyle = styles.first?.id }
+                if selectedStyle == nil, progress.progress(for: store.productID) == nil,
+                   let saved = store.results.last,
+                   let entry = store.catalog.first(where: { $0.value.contains(where: { $0.id == saved.sceneId }) }) {
+                    industry = entry.key
+                    selectedStyle = saved.sceneId
+                }
+                if !styles.isEmpty, !styles.contains(where: { $0.id == selectedStyle }) {
+                    selectedStyle = styles.first?.id
+                }
             }
             .onChange(of: scenePhase) {
                 if scenePhase == .background { generationTask?.cancel() }
             }
             .onDisappear { generationTask?.cancel() }
-            .onChange(of: industry) { selectedStyle = styles.first?.id }
+            .onChange(of: industry) {
+                if !styles.contains(where: { $0.id == selectedStyle }) { selectedStyle = styles.first?.id }
+                saveChoices()
+            }
+            .onChange(of: selectedStyle) { saveChoices() }
+            .onChange(of: angles) { saveChoices() }
         }
     }
 
@@ -192,16 +220,14 @@ struct StudioView: View {
         if !store.results.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("RESULTS").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Label("Saved automatically to this product", systemImage: "checkmark.icloud")
+                    .font(.footnote).foregroundStyle(.secondary)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                     ForEach(store.results) { image in
-                        if let raw = image.url, let url = URL(string: raw) {
-                            VStack(spacing: 6) {
-                                AsyncImage(url: url) { $0.resizable().scaledToFit() }
-                                    placeholder: { ProgressView().frame(height: 140) }
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                Button { Task { await save(url) } } label: {
-                                    Label("Save", systemImage: "square.and.arrow.down").font(.caption)
-                                }
+                        VStack(spacing: 6) {
+                            StudioPhotoPreview(store: store, photo: image)
+                            Button { Task { await save(image) } } label: {
+                                Label("Save to Photos", systemImage: "square.and.arrow.down").font(.caption)
                             }
                         }
                     }
@@ -217,6 +243,10 @@ struct StudioView: View {
 
     private var footer: some View {
         VStack(spacing: 10) {
+            if selectedStyle != nil {
+                Text("\(angles - store.uncachedCount(sceneID: selectedStyle, count: angles)) of \(angles) photos saved for this style")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
             Text("Estimated cost · \(cost) credits" + (balance.map { " · \($0) available" } ?? ""))
                 .font(.footnote).foregroundStyle(.secondary)
             if let message = store.progressMessage {
@@ -228,7 +258,7 @@ struct StudioView: View {
             } label: {
                 Group {
                     if store.isGenerating { ProgressView().tint(.white) }
-                    else { Text("Generate studio shots").font(.headline) }
+                    else { Text(cost == 0 ? "Refresh saved photos" : "Generate remaining photos").font(.headline) }
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 16)
                 .background(selectedStyle == nil ? Color.gray.opacity(0.4) : Color.black)
@@ -238,6 +268,7 @@ struct StudioView: View {
 
             if let onContinue {
                 Button {
+                    progress.update(store.productID) { $0.step = .listing }
                     onContinue()
                     dismiss()
                 } label: {
@@ -253,19 +284,62 @@ struct StudioView: View {
 
     private func generate() async {
         guard let token, let style = selectedStyle else { return }
+        saveChoices()
         saveNotice = nil
         await store.generate(industry: industry, sceneID: style, count: angles, token: token)
         if !Task.isCancelled { await appEnvironment.billing.refresh() }
     }
 
-    private func save(_ url: URL) async {
+    private func saveChoices() {
+        progress.update(store.productID) {
+            $0.industry = industry
+            $0.styleID = selectedStyle
+            $0.angles = angles
+        }
+    }
+
+    private func save(_ photo: StudioImage) async {
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let data = try await store.imageData(for: photo)
             guard let image = UIImage(data: data) else { throw URLError(.cannotDecodeContentData) }
             try await PhotoLibrarySaver.save(image)
             saveNotice = "Saved to Photos."
         } catch {
             store.errorMessage = "Could not save the image. Check Photos permission in Settings."
+        }
+    }
+}
+
+private struct StudioPhotoPreview: View {
+    let store: StudioStore
+    let photo: StudioImage
+    @State private var image: UIImage?
+    @State private var failed = false
+    @State private var attempt = 0
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFit()
+            } else if failed {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo")
+                    Text("Preview unavailable").font(.caption)
+                    Button("Retry preview") { attempt += 1 }.font(.caption)
+                }.frame(height: 140)
+            } else { ProgressView().frame(height: 140) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .task(id: "\(photo.hashValue)-\(attempt)") {
+            failed = false
+            do {
+                let data = try await store.imageData(for: photo)
+                guard !Task.isCancelled else { return }
+                image = UIImage(data: data)
+                failed = image == nil
+            } catch {
+                if !Task.isCancelled { failed = true }
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ struct MarketplacesView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.dismiss) private var dismiss
 
-    let product: ProductDTO
+    let productID: String
     /// Called once generation finished, carrying the result to Review.
     var onGenerated: (GenerateResultDTO) -> Void
 
@@ -24,6 +24,17 @@ struct MarketplacesView: View {
     @State private var showingAIConsent = false
     @State private var confirmedQuoteKey: String?
     @State private var isSubmitting = false
+    @State private var restoredChoices = false
+    @State private var progressOwner: ProductProgressStore?
+
+    init(product: ProductDTO, onGenerated: @escaping (GenerateResultDTO) -> Void) {
+        self.init(productID: product.id, onGenerated: onGenerated)
+    }
+
+    init(productID: String, onGenerated: @escaping (GenerateResultDTO) -> Void) {
+        self.productID = productID
+        self.onGenerated = onGenerated
+    }
 
     private var quoteKey: String { selected.sorted().joined(separator: ",") + ":\(scriptCount)" }
 
@@ -42,12 +53,15 @@ struct MarketplacesView: View {
                         row(marketplace)
                     }
                     scriptsRow
-                        .disabled(isSubmitting || generation.pendingRequest(productID: product.id) != nil)
+                        .disabled(isSubmitting || generation.pendingRequest(productID: productID) != nil)
 
                     if let message = generation.errorMessage {
                         Text(message)
                             .font(.footnote)
                             .foregroundStyle(generation.needsMoreCredits ? .orange : .red)
+                    }
+                    if let message = appEnvironment.productProgress.errorMessage {
+                        Text(message).font(.footnote).foregroundStyle(.orange)
                     }
                 }
                 .padding(20)
@@ -62,22 +76,42 @@ struct MarketplacesView: View {
             AIConsentView { generate() }
         }
         .task {
-            if let pending = generation.pendingRequest(productID: product.id) {
-                selected = Set(pending.marketplaces)
-                scriptCount = pending.scriptCount
+            let owner = appEnvironment.productProgress
+            progressOwner = owner
+            if !restoredChoices {
+                let saved = appEnvironment.productProgress.progress(for: productID)
+                if let pending = generation.pendingRequest(productID: productID) {
+                    selected = Set(pending.marketplaces)
+                    scriptCount = pending.scriptCount
+                } else if let saved {
+                    selected = Set(saved.marketplaces ?? [])
+                    scriptCount = saved.scriptCount
+                }
             }
             await appEnvironment.billing.refresh()
             await rules.load()
             if let token = appEnvironment.auth.token {
                 await generation.loadBalance(token: token)
             }
+            guard !Task.isCancelled, appEnvironment.productProgress === owner else { return }
             // TikTok Shop is the included tier, so it starts selected.
-            if selected.isEmpty,
+            if selected.isEmpty, appEnvironment.productProgress.progress(for: productID)?.marketplaces == nil,
                let included = rules.marketplaces.first(where: { $0.tier == "included" }) {
                 selected.insert(included.id)
             }
+            restoredChoices = true
+            saveChoices()
+            if let token = appEnvironment.auth.token,
+               let result = await generation.recoverPending(productID: productID, token: token),
+               appEnvironment.auth.token == token, !Task.isCancelled {
+                appEnvironment.productProgress.update(productID) { $0.step = .review }
+                onGenerated(result)
+                dismiss()
+            }
         }
         .task(id: quoteKey) { await requote() }
+        .onChange(of: selected) { saveChoices() }
+        .onChange(of: scriptCount) { saveChoices() }
     }
 
     private var header: some View {
@@ -87,7 +121,7 @@ struct MarketplacesView: View {
             Spacer()
             Text("Marketplaces").font(.headline)
             Spacer()
-            Text("3 of 4").foregroundStyle(.secondary)
+            Text("4 of 4").foregroundStyle(.secondary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -138,7 +172,7 @@ struct MarketplacesView: View {
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-        .disabled(isSubmitting || generation.pendingRequest(productID: product.id) != nil)
+        .disabled(isSubmitting || generation.pendingRequest(productID: productID) != nil)
     }
 
     private var scriptsRow: some View {
@@ -172,7 +206,7 @@ struct MarketplacesView: View {
                     if generation.isGenerating {
                         ProgressView().tint(.white)
                     } else {
-                        Text("Generate listing").font(.headline)
+                        Text(generation.pendingRequest(productID: productID) == nil ? "Generate listing" : "Resume listing").font(.headline)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -205,7 +239,7 @@ struct MarketplacesView: View {
         let store = generation
         confirmedQuoteKey = nil
         await store.quote(
-            productID: product.id,
+            productID: productID,
             marketplaces: Array(selected).sorted(),
             scriptCount: scriptCount,
             token: token
@@ -230,15 +264,25 @@ struct MarketplacesView: View {
             // shared state inspected after an await can still hold an earlier
             // successful run, which would dismiss on a failed request.
             let result = await store.generate(
-                productID: product.id,
+                productID: productID,
                 marketplaces: marketplaces,
                 scriptCount: scripts,
                 token: token
             )
             if let result, appEnvironment.auth.token == token {
+                appEnvironment.productProgress.update(productID) { $0.step = .review }
                 onGenerated(result)
                 dismiss()
             }
+        }
+    }
+
+    private func saveChoices() {
+        guard restoredChoices, progressOwner === appEnvironment.productProgress else { return }
+        appEnvironment.productProgress.update(productID) {
+            $0.step = .listing
+            $0.marketplaces = selected.sorted()
+            $0.scriptCount = scriptCount
         }
     }
 }
