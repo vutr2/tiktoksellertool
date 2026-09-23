@@ -29,17 +29,28 @@ final class AuthStore {
     private let api: APIClient
     private let keychain = KeychainStore()
     private let sessionKey = "session"
+    #if DEBUG
+    private var isDemoSession = false
+    #endif
+
+    private var persistsSession: Bool {
+        #if DEBUG
+        return !isDemoSession
+        #else
+        return true
+        #endif
+    }
 
     private var session: Session? {
         didSet {
             onSessionChanged?(session?.user)
             if let session {
-                if let data = try? JSONEncoder().encode(session) {
+                if persistsSession, let data = try? JSONEncoder().encode(session) {
                     keychain.set(data, for: sessionKey)
                 }
                 state = .signedIn(session.user)
             } else {
-                keychain.delete(sessionKey)
+                if persistsSession { keychain.delete(sessionKey) }
                 state = .signedOut
             }
         }
@@ -52,6 +63,10 @@ final class AuthStore {
     }
 
     func restore() {
+        #if DEBUG
+        // A preview must not import the saved real account after signing out.
+        guard !isDemoSession else { return }
+        #endif
         if let data = keychain.data(for: sessionKey),
            let saved = try? JSONDecoder().decode(Session.self, from: data) {
             session = saved
@@ -92,8 +107,10 @@ final class AuthStore {
     }
 
     #if DEBUG
-    /// Signs in with a fake session for screenshots, without a network call.
+    /// Keeps preview sign-in and sign-out entirely in memory, preserving the
+    /// real account's saved session for the next normal app launch.
     func startDemoSession(_ user: UserDTO) {
+        isDemoSession = true
         session = Session(token: "demo-token", user: user)
     }
     #endif

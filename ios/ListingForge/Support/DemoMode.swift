@@ -6,7 +6,7 @@
 //  Release (App Store) archive. Activated by launch arguments:
 //
 //      --demo                 seed a signed-in session + sample content
-//      --screen <name>        products | review | paywall | settings | capture
+//      --screen <name>        products | review | paywall | settings | capture | details | marketplaces | studio | convert
 //
 //  It lets us capture App Store screenshots on the simulator without a live
 //  backend, camera, or real sign-in. The seeded stores short-circuit their
@@ -18,7 +18,7 @@ import Foundation
 import SwiftUI
 
 enum DemoScreen: String {
-    case products, review, paywall, settings, capture
+    case products, review, paywall, settings, capture, details, marketplaces, studio, convert
 }
 
 enum DemoMode {
@@ -38,17 +38,17 @@ enum DemoMode {
     /// Which tab MainTabView should open on for the requested screen.
     static var initialTab: MainTab? {
         switch screen {
-        case .capture: return .capture
-        case .products, .review: return .products
+        case .capture, .details, .marketplaces, .studio: return .capture
+        case .products, .review, .convert: return .products
         case .paywall, .settings: return .settings
         case .none: return nil
         }
     }
 
-    /// Review and Paywall are shown as sheets over their owning tab, exactly as
-    /// the real app presents them.
+    /// Workflow screens are presented over their owning tab.
     static var wantsSheet: Bool {
-        screen == .review || screen == .paywall
+        guard let screen else { return false }
+        return [.review, .paywall, .details, .marketplaces, .studio, .convert].contains(screen)
     }
 
     @ViewBuilder
@@ -63,76 +63,119 @@ enum DemoMode {
             )
         case .paywall:
             DemoPaywallView()
+        case .details, .marketplaces, .studio, .convert:
+            DemoWorkflowScreen(screen: screen!)
         default:
             EmptyView()
         }
     }
 }
 
-/// A static stand-in for PaywallView used only for screenshots. `simctl launch`
-/// does not apply the scheme's StoreKit configuration, so real StoreKit.Product
-/// objects can't load outside Xcode — and they can't be constructed by hand.
-/// This mirrors the real paywall's layout with representative plan data.
+private struct DemoWorkflowScreen: View {
+    @Environment(AppEnvironment.self) private var environment
+    let screen: DemoScreen
+
+    var body: some View {
+        switch screen {
+        case .details:
+            ProductDetailsView(cutouts: [DemoData.cutout], onCreated: { _ in }, onGenerated: { _ in })
+        case .marketplaces:
+            MarketplacesView(product: DemoData.products[0], onGenerated: { _ in })
+        case .studio:
+            StudioView(store: environment.studio(for: "demo-1"), progress: environment.productProgress,
+                       productName: DemoData.products[0].name, thumbnail: DemoData.productImage,
+                       industry: .home, stepLabel: "3 of 4", onContinue: {})
+        case .convert:
+            ConvertView(source: "tiktok_shop", assets: DemoData.listing.assets.map(ReviewAsset.init), onContinue: { _ in })
+        default:
+            EmptyView()
+        }
+    }
+}
+
+/// A DEBUG-only paywall preview. simctl does not load the scheme's StoreKit
+/// configuration, so this uses representative prices without purchase actions.
 struct DemoPaywallView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var selected = "Pro"
+    @State private var annual = false
 
     private struct Plan: Identifiable {
-        let id = UUID()
+        var id: String { name }
         let name: String
         let blurb: String
         let price: String
+        let annualPrice: String
+        let credits: String
     }
 
     private let plans = [
-        Plan(name: "Starter", blurb: "400 credits per month. TikTok Shop.", price: "$29.99"),
-        Plan(name: "Pro", blurb: "1,100 credits per month. TikTok Shop, Amazon, eBay, and Etsy.", price: "$79.99"),
-        Plan(name: "Scale", blurb: "2,800 credits per month. All four marketplaces.", price: "$199.99"),
+        Plan(name: "Starter", blurb: "TikTok Shop only", price: "$29.99", annualPrice: "$299.99", credits: "400 credits / month"),
+        Plan(name: "Pro", blurb: "All four marketplaces", price: "$79.99", annualPrice: "$799.99", credits: "1,100 credits / month"),
+        Plan(name: "Scale", blurb: "All four marketplaces", price: "$199.99", annualPrice: "$1,999.99", credits: "2,800 credits / month"),
     ]
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Create listings with Listing Force").font(.title2.bold())
-                        Text("Starter includes TikTok Shop. Pro and Scale include Amazon, eBay and Etsy. Review generated content before publishing.")
-                            .foregroundStyle(.secondary)
-                    }
-                    LabeledContent("Credits", value: "1100")
-                    LabeledContent("Current plan", value: "Pro")
-                }
-                Section("Subscriptions") {
+        VStack(spacing: 0) {
+            WorkflowHeader(title: "", backTitle: "Close", onBack: { dismiss() })
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("List on all four\nmarketplaces").font(.title.bold())
+                    Text("Create product photos and listing copy tailored to every marketplace.")
+                        .font(.subheadline).foregroundStyle(.secondary).padding(.bottom, 10)
                     ForEach(plans) { plan in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(plan.name).font(.headline)
-                            Text(plan.blurb).font(.subheadline)
-                            Button("Start 7-day free trial · then \(plan.price) / month") {}
-                            Text("7-day free, then \(plan.price) per month. Renews automatically until canceled.")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }.padding(.vertical, 4)
+                        Button { selected = plan.name } label: {
+                            HStack(spacing: 12) {
+                                Circle().fill(selected == plan.name ? Color.primary : Color.clear)
+                                    .overlay(Circle().stroke(WorkflowStyle.border, lineWidth: 1))
+                                    .frame(width: 20, height: 20)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(plan.name).font(.subheadline.weight(.semibold))
+                                    Text(plan.blurb).font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 4)
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(annual ? plan.annualPrice : plan.price).font(.subheadline.weight(.semibold))
+                                    Text(plan.credits).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            .workflowCard()
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected == plan.name ? Color.primary : Color.clear, lineWidth: 1.8))
+                        }.buttonStyle(.plain)
                     }
-                    Text("Subscriptions renew automatically unless canceled at least 24 hours before the period ends. A free trial that is not canceled converts to a paid subscription.")
-                        .font(.footnote)
-                }
-                Section("Additional credits") {
-                    Button("300 credits · $14.99") {}
-                    Text("Top-up credits do not expire.").font(.footnote)
-                }
-                Section {
-                    Button("Restore Purchases") {}
-                    Link("Manage subscriptions", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                    if let url = AppConfig.privacyPolicyURL { Link("Privacy Policy", destination: url) }
-                    if let url = AppConfig.termsURL { Link("Terms of Use", destination: url) }
-                }
+                    Picker("Billing period", selection: $annual) {
+                        Text("Monthly").tag(false)
+                        Text("Annual · save 17%").tag(true)
+                    }.pickerStyle(.segmented).padding(.top, 2)
+                    Text("Preview prices · no purchase will be made.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }.padding(.horizontal, 22).padding(.bottom, 20).background(WorkflowStyle.surface)
             }
-            .navigationTitle("Plans and credits")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }
+            VStack(spacing: 10) {
+                Button("Start 7-day free trial") {}.buttonStyle(WorkflowPrimaryButtonStyle())
+                Text("100 trial credits. Renews at the selected plan price unless canceled.")
+                    .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                HStack(spacing: 22) {
+                    Button("Restore Purchases") {}
+                    Text("·")
+                    Button("Terms") {}
+                    Text("·")
+                    Button("Privacy") {}
+                }.font(.caption2).foregroundStyle(.secondary)
+            }.padding(22)
+        }.background(WorkflowStyle.background).tint(.primary).presentationDragIndicator(.hidden)
     }
 }
 
 /// Fixed, representative sample content used for screenshots.
 enum DemoData {
+    static var productImage: UIImage { DemoTransport.productImage }
+    static var cutout: ProductCutout {
+        ProductCutout(pngData: productImage.pngData()!,
+                      quality: CutoutQuality(coverage: 0.6, softEdgeFraction: 0.02),
+                      verdict: .usable, widthPx: 400, heightPx: 400)
+    }
+
     static let user = UserDTO(id: "3B9F2C1A-4D5E-4A6B-8C7D-9E0F1A2B3C4D", email: "demo@listingforce.app")
 
     static let products: [ProductDTO] = [
@@ -152,13 +195,13 @@ enum DemoData {
 
     static let marketplaces: [MarketplaceRulesDTO] = [
         MarketplaceRulesDTO(id: "tiktok_shop", version: "1", displayName: "TikTok Shop",
-                            tier: "included", summary: "", images: [:]),
+                            tier: "included", summary: "1:1 · video cover · overlay text OK", images: [:]),
         MarketplaceRulesDTO(id: "amazon", version: "1", displayName: "Amazon",
-                            tier: "pro", summary: "", images: [:]),
+                            tier: "pro", summary: "Pure white main · no text · 1600px", images: [:]),
         MarketplaceRulesDTO(id: "ebay", version: "1", displayName: "eBay",
-                            tier: "pro", summary: "", images: [:]),
+                            tier: "pro", summary: "No borders · no watermark", images: [:]),
         MarketplaceRulesDTO(id: "etsy", version: "1", displayName: "Etsy",
-                            tier: "pro", summary: "", images: [:]),
+                            tier: "pro", summary: "Lifestyle-first · 13 tags · SEO title", images: [:]),
     ]
 
     static let listing = ListingAssetsDTO(

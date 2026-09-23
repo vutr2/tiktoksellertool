@@ -36,6 +36,12 @@ final class BillingStore {
 
     init(api: APIClient) {
         self.api = api
+        #if DEBUG
+        if DemoMode.isActive {
+            demoActive = true
+            return
+        }
+        #endif
         listener = Task { [weak self] in
             for await result in Transaction.updates {
                 guard !Task.isCancelled else { return }
@@ -63,18 +69,19 @@ final class BillingStore {
     /// Marks the store as demo so refresh/restore never touch the network.
     /// Set synchronously before any async work to win the race with the refresh
     /// task spawned by `useAccount`.
-    func enableDemo() { demoActive = true }
-
-    /// Seeds a plan status and loads the local StoreKit catalog for screenshots.
-    func seedDemo(status: BillingStatus) async {
+    func enableDemo() {
         demoActive = true
+        listener?.cancel()
+        listener = nil
+    }
+
+    /// Seeds the preview status without querying Apple's account or catalog.
+    /// DemoPaywallView supplies representative prices without purchase actions.
+    func seedDemo(status: BillingStatus) async {
+        enableDemo()
         self.status = status
-        let catalog = (try? await StoreKit.Product.products(
-            for: status.subscriptionProductIDs + [status.topupProductID])) ?? []
-        products = catalog.sorted { $0.price < $1.price }
-        if let subscription = products.first(where: { $0.type == .autoRenewable })?.subscription {
-            introOfferEligible = await subscription.isEligibleForIntroOffer
-        }
+        products = []
+        introOfferEligible = false
     }
     #endif
 
@@ -118,6 +125,9 @@ final class BillingStore {
     }
 
     func purchase(_ product: StoreKit.Product) async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard !isBusy, let userID, token != nil else { return }
         isBusy = true
         message = nil
@@ -138,6 +148,9 @@ final class BillingStore {
     }
 
     func restore() async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard !isBusy, let issuedToken = token else { return }
         isBusy = true
         message = nil
@@ -157,6 +170,9 @@ final class BillingStore {
     }
 
     private func refreshPurchases() async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard let issuedToken = token else { return }
         for await result in Transaction.unfinished {
             guard token == issuedToken else { return }
@@ -171,6 +187,9 @@ final class BillingStore {
     }
 
     private func confirm(_ result: VerificationResult<Transaction>) async {
+        #if DEBUG
+        if demoActive { return }
+        #endif
         guard let token, let userID else { return }
         guard case .verified(let transaction) = result else {
             message = "Apple could not verify this purchase. Try Restore Purchases."

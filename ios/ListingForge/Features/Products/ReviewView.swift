@@ -96,51 +96,63 @@ struct ReviewView: View {
         return listingFailures.first { $0.marketplace == current }
     }
 
+    @State private var expandedAssets: Set<String> = []
+    @State private var showConversion = false
+    @State private var conversionTarget: String?
+
+    private var studio: StudioStore? { productID.map { appEnvironment.studio(for: $0) } }
+    private var firstIssue: ViolationDTO? {
+        shown.flatMap(\.violations).first(where: \.isFailure) ?? shown.flatMap(\.violations).first
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
-            if productID != nil { savedWorkActions }
-            if let notice {
-                Label(notice, systemImage: "wifi.exclamationmark")
-                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 20)
-            }
-
-            if marketplaces.isEmpty {
-                ContentUnavailableView(
-                    "Your product is saved",
-                    systemImage: "doc.text",
-                    description: Text("Open your Studio photos or continue creating this listing whenever you’re ready.")
-                )
-            } else {
-                chips
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("AI-generated content. Check product facts and marketplace requirements before publishing.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if let failure = currentFailure {
-                            failureBanner(failure)
-                        }
-                        ForEach(Array(shown.enumerated()), id: \.offset) { _, asset in
-                            assetCard(asset)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if !marketplaces.isEmpty { chips }
+                    photoStrip
+                    if let notice {
+                        Label(notice, systemImage: "wifi.exclamationmark")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
-                    .padding(20)
+                    if let failure = currentFailure { failureBanner(failure) }
+                    if marketplaces.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your product is saved").font(.headline)
+                            Text("Open Studio photos or continue creating your listing whenever you’re ready.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }.padding(.vertical, 12)
+                    }
+                    ForEach(Array(shown.enumerated()), id: \.offset) { index, asset in
+                        assetCard(asset, rowID: "\(asset.id)-\(index)")
+                    }
+                    if !shown.isEmpty {
+                        Text("AI-generated content. Review product facts before publishing.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if productID != nil { savedWorkActions }
                 }
+                .padding(.horizontal, 22).padding(.bottom, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(WorkflowStyle.surface)
             }
+            footer
         }
-        .background(Color(.systemGroupedBackground))
+        .background(WorkflowStyle.background)
+        .tint(.primary)
+        .presentationDragIndicator(.hidden)
+        .task(id: showStudio) {
+            if !showStudio, let studio, let token = appEnvironment.auth.token { await studio.load(token: token) }
+        }
         .sheet(item: $reportingAsset) { asset in
-            if let productID {
-                ContentReportView(productID: productID, asset: asset)
-            }
+            if let productID { ContentReportView(productID: productID, asset: asset) }
         }
         .sheet(isPresented: $showStudio, onDismiss: {
             if advanceToListing { advanceToListing = false; showMarketplaces = true }
         }) {
-            if let productID {
-                StudioView(store: appEnvironment.studio(for: productID), progress: appEnvironment.productProgress,
+            if let studio {
+                StudioView(store: studio, progress: appEnvironment.productProgress,
                            productName: productName, onContinue: { advanceToListing = true })
             }
         }
@@ -156,51 +168,111 @@ struct ReviewView: View {
             }
         }
         .sheet(isPresented: $showScripts) {
-            if let productID {
-                ScriptsView(productID: productID, api: appEnvironment.api)
+            if let productID { ScriptsView(productID: productID, api: appEnvironment.api) }
+        }
+        .sheet(isPresented: $showConversion, onDismiss: {
+            if let target = conversionTarget, let productID {
+                conversionTarget = nil
+                appEnvironment.productProgress.update(productID) { $0.marketplaces = [target] }
+                showMarketplaces = true
+            }
+        }) {
+            if let current {
+                ConvertView(source: current, assets: shown) { conversionTarget = $0 }
             }
         }
-    }
-
-    // MARK: Header
-
-    private var savedWorkActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(productName).font(.headline)
-            Button { showStudio = true } label: {
-                Label("Studio photos", systemImage: "photo.on.rectangle.angled")
-            }
-            Button { showMarketplaces = true } label: {
-                Label(listingAssets.isEmpty ? "Continue listing" : "Generate more listing content", systemImage: "doc.text")
-            }
-        }
-        .buttonStyle(.bordered)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20).padding(.vertical, 12)
     }
 
     private var header: some View {
-        HStack {
-            Button("Back") { dismiss() }
-            Spacer()
-            Text("Review").font(.headline)
-            Spacer()
-            if productID != nil {
-                Button { showScripts = true } label: { Image(systemName: "film") }
-                    .accessibilityLabel("Video scripts")
-                    .padding(.trailing, 12)
-                Button { showStudio = true } label: { Image(systemName: "wand.and.stars") }
-                    .accessibilityLabel("Studio shots")
-                    .padding(.trailing, 12)
+        HStack(spacing: 8) {
+            Button { dismiss() } label: {
+                Text("Back").foregroundStyle(.secondary).frame(width: 60, alignment: .leading)
+                    .frame(minHeight: 44).contentShape(Rectangle())
             }
-            if let text = exportText, !text.isEmpty {
-                ShareLink(item: text) { Text("Export") }
-            } else {
-                Text("Export").foregroundStyle(.tertiary)
+            Text("Review").fontWeight(.semibold).frame(maxWidth: .infinity)
+            Group {
+                if let text = exportText, !text.isEmpty {
+                    ShareLink(item: text) {
+                        Text("Export").fontWeight(.semibold).frame(minHeight: 44)
+                    }
+                } else { Text("Export").foregroundStyle(.tertiary) }
+            }.frame(width: 60, alignment: .trailing)
+        }
+        .font(.subheadline).padding(.horizontal, 22).frame(minHeight: 64)
+    }
+
+    @ViewBuilder private var photoStrip: some View {
+        if let studio {
+            if studio.isLoading && studio.results.isEmpty {
+                ProgressView("Loading saved photos…").font(.caption).padding(.vertical, 8)
+            }
+            if let message = studio.errorMessage {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(message).font(.caption).foregroundStyle(.secondary)
+                    Button("Reload saved photos") {
+                        Task { if let token = appEnvironment.auth.token { await studio.load(token: token) } }
+                    }.font(.caption).disabled(studio.isLoading)
+                }.padding(.vertical, 6)
+            }
+            if !studio.results.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(studio.results) { photo in
+                            VStack(alignment: .leading, spacing: 8) {
+                                StudioPhotoPreview(store: studio, photo: photo)
+                                    .frame(width: 154, height: 160)
+                                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(WorkflowStyle.border, lineWidth: 0.8))
+                                HStack {
+                                    Text("Angle \(photo.index + 1)").font(.caption2).foregroundStyle(.secondary)
+                                    Spacer()
+                                    WorkflowPill(text: "Saved", tint: WorkflowStyle.green)
+                                }
+                            }.frame(width: 154)
+                        }
+                    }
+                }
+                Text("Studio photos · review image requirements before publishing.")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+    }
+
+    private var savedWorkActions: some View {
+        HStack(spacing: 20) {
+            Button { showStudio = true } label: {
+                Label("Studio photos", systemImage: "photo.on.rectangle")
+            }
+            Spacer(minLength: 0)
+            Menu {
+                Button("Generate listing content") { showMarketplaces = true }
+                Button("Video scripts") { showScripts = true }
+            } label: { Label("More", systemImage: "ellipsis") }
+        }
+        .font(.caption).padding(.vertical, 8)
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let issue = firstIssue {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(issue.message).font(.subheadline.weight(.medium))
+                    if let detail = issue.detail { Text(detail).font(.caption) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+                .foregroundStyle(issue.isFailure ? WorkflowStyle.red : WorkflowStyle.amber)
+                .background((issue.isFailure ? WorkflowStyle.red : WorkflowStyle.amber).opacity(0.10),
+                            in: RoundedRectangle(cornerRadius: 13))
+            }
+            if productID != nil {
+                Button {
+                    if shown.isEmpty { showMarketplaces = true }
+                    else { showConversion = true }
+                } label: {
+                    Text(shown.isEmpty ? "Continue listing" : "Check another marketplace · free")
+                }.buttonStyle(WorkflowPrimaryButtonStyle())
+            }
+        }.padding(22)
     }
 
     /// Everything for the selected marketplace, ready to paste into it.
@@ -224,84 +296,66 @@ struct ReviewView: View {
 
     private var chips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(marketplaces, id: \.self) { marketplace in
                     let isSelected = marketplace == current
-                    Button {
-                        selectedMarketplace = marketplace
-                    } label: {
-                        HStack(spacing: 6) {
-                            statusDot(worstStatus(for: marketplace))
-                            Text(displayName(marketplace))
-                        }
-                        .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .background(isSelected ? Color.primary : Color(.systemBackground), in: Capsule())
-                        .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
+                    Button { selectedMarketplace = marketplace } label: {
+                        Text(displayName(marketplace))
+                            .font(.caption.weight(isSelected ? .medium : .regular))
+                            .padding(.horizontal, 13).frame(minHeight: 32)
+                            .background(isSelected ? Color.primary : WorkflowStyle.surface, in: Capsule())
+                            .foregroundStyle(isSelected ? Color(.systemBackground) : .secondary)
+                            .overlay(Capsule().stroke(WorkflowStyle.border, lineWidth: isSelected ? 0 : 0.8))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(displayName(marketplace)), \(worstStatus(for: marketplace).rawValue)")
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
         }
     }
 
     // MARK: Assets
 
-    private func assetCard(_ asset: ReviewAsset) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(asset.type.capitalized).font(.headline)
-                Spacer()
-                badge(asset.displayedStatus)
-            }
-
-            Text(asset.content)
-                .font(.callout)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            ForEach(Array(asset.violations.enumerated()), id: \.offset) { _, violation in
-                // The rule in plain English, exactly as the engine worded it
-                // (SPEC §10). No codes reach the screen.
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(violation.message)
-                        .font(.footnote.weight(.medium))
-                    if let detail = violation.detail {
-                        Text(detail).font(.caption).foregroundStyle(.secondary)
-                    }
+    private func assetCard(_ asset: ReviewAsset, rowID: String) -> some View {
+        DisclosureGroup(isExpanded: Binding(
+            get: { expandedAssets.contains(rowID) },
+            set: { if $0 { expandedAssets.insert(rowID) } else { expandedAssets.remove(rowID) } }
+        )) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(asset.content).font(.subheadline).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(Array(asset.violations.enumerated()), id: \.offset) { _, violation in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(violation.message).font(.caption.weight(.medium))
+                        if let detail = violation.detail { Text(detail).font(.caption2) }
+                    }.foregroundStyle(violation.isFailure ? WorkflowStyle.red : WorkflowStyle.amber)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(violation.isFailure ? .red.opacity(0.1) : .orange.opacity(0.12),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(violation.isFailure ? .red : .orange)
-            }
-
-            HStack {
-                Button {
-                    UIPasteboard.general.string = asset.content
-                    copiedAssetID = asset.id
-                } label: {
-                    Label(copiedAssetID == asset.id ? "Copied" : "Copy", systemImage: "doc.on.doc")
-                }
-                Spacer()
-                if productID != nil {
+                HStack {
                     Button {
-                        reportingAsset = asset
+                        UIPasteboard.general.string = asset.content
+                        copiedAssetID = asset.id
                     } label: {
-                        Label("Report", systemImage: "flag")
+                        Label(copiedAssetID == asset.id ? "Copied" : "Copy", systemImage: "doc.on.doc")
                     }
+                    Spacer()
+                    if productID != nil {
+                        Button { reportingAsset = asset } label: { Label("Report", systemImage: "flag") }
+                    }
+                }.font(.caption)
+            }.padding(.top, 12)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(asset.type == "ad_script" ? "Ad script" : asset.type.capitalized)
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(asset.content.count) characters")
+                        .font(.caption2).foregroundStyle(.secondary)
                 }
+                Spacer()
+                WorkflowPill(text: asset.displayedStatus.rawValue.capitalized, tint: colour(asset.displayedStatus))
             }
-            .font(.footnote)
-        }
-        .padding(16)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
+        }.workflowCard()
     }
 
     private func failureBanner(_ failure: GenerationFailureDTO) -> some View {
@@ -326,26 +380,11 @@ struct ReviewView: View {
         return .pass
     }
 
-    private func statusDot(_ status: ComplianceStatus) -> some View {
-        Circle()
-            .fill(colour(status))
-            .frame(width: 7, height: 7)
-    }
-
-    private func badge(_ status: ComplianceStatus) -> some View {
-        Text(status.rawValue.capitalized)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(colour(status).opacity(0.16), in: Capsule())
-            .foregroundStyle(colour(status))
-    }
-
     private func colour(_ status: ComplianceStatus) -> Color {
         switch status {
-        case .pass: return .green
-        case .warn: return .orange
-        case .fail: return .red
+        case .pass: return WorkflowStyle.green
+        case .warn: return WorkflowStyle.amber
+        case .fail: return WorkflowStyle.red
         }
     }
 

@@ -53,15 +53,12 @@ struct StudioView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                WorkflowHeader(title: "Studio shots", step: stepLabel, onBack: { dismiss() })
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 22) {
                         productCard
-                        industryMenu
-                            .disabled(store.isGenerating)
                         stylePicker
-                            .allowsHitTesting(!store.isGenerating)
                         anglePicker
-                            .allowsHitTesting(!store.isGenerating)
                         results
                         if let message = store.errorMessage {
                             Text(message).font(.footnote).foregroundStyle(.red)
@@ -70,24 +67,15 @@ struct StudioView: View {
                             Text(message).font(.footnote).foregroundStyle(.orange)
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 22).padding(.bottom, 22)
+                    .background(WorkflowStyle.surface)
                 }
                 footer
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Studio shots")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        Task { if let token { await store.load(token: token) } }
-                    } label: { Image(systemName: "arrow.clockwise") }
-                    .accessibilityLabel("Refresh saved photos")
-                    .disabled(store.isGenerating || store.isLoading)
-                }
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-                if let stepLabel { ToolbarItem(placement: .principal) { Text(stepLabel).foregroundStyle(.secondary) } }
-            }
+            .background(WorkflowStyle.background)
+            .toolbar(.hidden, for: .navigationBar)
+            .tint(.primary)
+            .presentationDragIndicator(.hidden)
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
                 if !store.isGenerating, let token { await store.load(token: token) }
@@ -120,42 +108,57 @@ struct StudioView: View {
         HStack(spacing: 14) {
             Group {
                 if let thumbnail {
-                    Image(uiImage: thumbnail).resizable().scaledToFill()
+                    Image(uiImage: thumbnail).resizable().scaledToFit()
                 } else {
                     RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemBackground))
                         .overlay { Image(systemName: "shippingbox").foregroundStyle(.secondary) }
                 }
             }
-            .frame(width: 72, height: 72)
+            .frame(width: 58, height: 58)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(productName).font(.headline)
-                Text("Source photo captured · BG removed").font(.subheadline).foregroundStyle(.secondary)
+                Text(productName).font(.footnote.weight(.semibold))
+                Text("Source photo captured · BG removed").font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
-            Text("Ready").font(.caption.weight(.semibold))
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(.green.opacity(0.15), in: Capsule()).foregroundStyle(.green)
+            WorkflowPill(text: "Ready", tint: WorkflowStyle.green)
         }
-        .padding(16)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .workflowCard(padding: 11, radius: 14)
     }
 
     private var industryMenu: some View {
-        Picker("Industry", selection: $industry) {
-            ForEach(Industry.allCases) { Text("\($0.emoji) \($0.label)").tag($0) }
+        Menu {
+            Picker("Industry", selection: $industry) {
+                ForEach(Industry.allCases) { Text($0.label).tag($0) }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(industry.label)
+                Image(systemName: "chevron.down")
+            }.font(.caption2).foregroundStyle(.secondary)
         }
-        .pickerStyle(.menu)
+        .accessibilityLabel("Industry, \(industry.label)")
+        .disabled(store.isGenerating)
     }
 
     // MARK: Style picker
 
     private var stylePicker: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("CHOOSE A STYLE").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            HStack {
+                Text("CHOOSE A STYLE").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                industryMenu
+            }
+            if store.isLoading && styles.isEmpty { ProgressView("Loading styles…") }
+            if styles.isEmpty && !store.isLoading {
+                Button("Retry loading styles") {
+                    Task { if let token { await store.load(token: token) } }
+                }.font(.subheadline).frame(minHeight: 44)
+            }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 9) {
                     ForEach(styles) { style in styleCard(style) }
                 }
             }
@@ -164,26 +167,39 @@ struct StudioView: View {
 
     private func styleCard(_ style: StudioScene) -> some View {
         let isSelected = selectedStyle == style.id
-        return VStack(spacing: 8) {
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(LinearGradient(colors: [Color(.tertiarySystemFill), Color(.secondarySystemBackground)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .frame(width: 120, height: 120)
-                    .overlay { Text(style.emoji).font(.largeTitle) }
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.white, Color.accentColor)
-                        .padding(6)
+        return Button { selectedStyle = style.id } label: {
+            VStack(spacing: 7) {
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if let image = store.results.first(where: { $0.sceneId == style.id }) {
+                            StudioPhotoPreview(store: store, photo: image)
+                                .allowsHitTesting(false).accessibilityHidden(true)
+                        } else {
+                            StudioStyleIllustration(styleID: style.id, product: thumbnail)
+                        }
+                    }
+                    .frame(width: 80, height: 88).clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .green)
+                            .font(.subheadline).padding(4)
+                    }
                 }
+                Text(style.name).font(.caption2.weight(isSelected ? .medium : .regular))
+                    .lineLimit(2).multilineTextAlignment(.center).frame(width: 80).frame(minHeight: 24)
+                    .foregroundStyle(isSelected ? WorkflowStyle.green : .primary)
             }
-            Text(style.name).font(.subheadline)
-                .foregroundStyle(isSelected ? Color.accentColor : .primary)
+            .padding(6)
+            .background(WorkflowStyle.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? Color.green : WorkflowStyle.border, lineWidth: isSelected ? 1.5 : 0.8))
         }
-        .padding(6)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(isSelected ? Color.accentColor : .clear, lineWidth: 2))
-        .contentShape(Rectangle())
-        .onTapGesture { selectedStyle = style.id }
+        .buttonStyle(.plain)
+        .disabled(store.isGenerating)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(style.name)
+        .accessibilityValue(isSelected ? "Selected" : "")
     }
 
     // MARK: Angle picker
@@ -191,24 +207,27 @@ struct StudioView: View {
     private var anglePicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("ANGLES TO GENERATE").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 ForEach(angleOptions, id: \.self) { option in
                     let isSelected = angles == option
-                    VStack(spacing: 2) {
-                        Text("\(option) Angle\(option == 1 ? "" : "s")").font(.subheadline.weight(.semibold))
-                        if option == 3 {
-                            Text("Recommended").font(.caption2)
-                                .foregroundStyle(isSelected ? .green : .secondary)
+                    Button { angles = option } label: {
+                        VStack(spacing: 2) {
+                            Text("\(option) Angle\(option == 1 ? "" : "s")").font(.subheadline.weight(.semibold))
+                            if option == 3 {
+                                Text("Recommended").font(.caption2)
+                                    .foregroundStyle(isSelected ? .green : .secondary)
+                            }
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(isSelected ? Color(white: 0.065) : WorkflowStyle.surface,
+                                    in: RoundedRectangle(cornerRadius: 12))
+                        .foregroundStyle(isSelected ? .white : .primary)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(WorkflowStyle.border, lineWidth: isSelected ? 0 : 0.8))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(isSelected ? Color.black : Color(.systemBackground),
-                                in: RoundedRectangle(cornerRadius: 12))
-                    .foregroundStyle(isSelected ? .white : .primary)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(.separator), lineWidth: isSelected ? 0 : 1))
-                    .contentShape(Rectangle())
-                    .onTapGesture { angles = option }
+                    .buttonStyle(.plain)
+                    .disabled(store.isGenerating)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }
@@ -219,7 +238,15 @@ struct StudioView: View {
     @ViewBuilder private var results: some View {
         if !store.results.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("RESULTS").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack {
+                    Text("SAVED PHOTOS").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        Task { if let token { await store.load(token: token) } }
+                    } label: { Image(systemName: "arrow.clockwise") }
+                    .accessibilityLabel("Refresh saved photos")
+                    .disabled(store.isGenerating || store.isLoading)
+                }
                 Label("Saved automatically to this product", systemImage: "checkmark.icloud")
                     .font(.footnote).foregroundStyle(.secondary)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
@@ -248,7 +275,7 @@ struct StudioView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Text("Estimated cost · \(cost) credits" + (balance.map { " · \($0) available" } ?? ""))
-                .font(.footnote).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary)
             if let message = store.progressMessage {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -258,12 +285,10 @@ struct StudioView: View {
             } label: {
                 Group {
                     if store.isGenerating { ProgressView().tint(.white) }
-                    else { Text(cost == 0 ? "Refresh saved photos" : "Generate remaining photos").font(.headline) }
+                    else { Text(cost == 0 ? "Refresh saved photos" : "Generate studio shots") }
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 16)
-                .background(selectedStyle == nil ? Color.gray.opacity(0.4) : Color.black)
-                .foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 14))
             }
+            .buttonStyle(WorkflowPrimaryButtonStyle())
             .disabled(selectedStyle == nil || store.isGenerating || store.isLoading)
 
             if let onContinue {
@@ -275,11 +300,11 @@ struct StudioView: View {
                     Text(store.results.isEmpty ? "Skip · continue to listing" : "Continue to listing")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(20)
-        .background(.bar)
+        .background(WorkflowStyle.background)
     }
 
     private func generate() async {
@@ -310,7 +335,7 @@ struct StudioView: View {
     }
 }
 
-private struct StudioPhotoPreview: View {
+struct StudioPhotoPreview: View {
     let store: StudioStore
     let photo: StudioImage
     @State private var image: UIImage?
@@ -341,6 +366,39 @@ private struct StudioPhotoPreview: View {
                 if !Task.isCancelled { failed = true }
             }
         }
+    }
+}
+
+/// A scene illustration using the actual cutout when available. Completed
+/// renders replace these illustrations with the customer's saved photographs.
+private struct StudioStyleIllustration: View {
+    let styleID: String
+    let product: UIImage?
+
+    private var warm: Bool { styleID.contains("wood") || styleID.contains("lifestyle") || styleID.contains("sun") || styleID.contains("living") }
+    private var dark: Bool { styleID.contains("black") || styleID.contains("dark") }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: dark ? [.gray, .black] : warm
+                ? [Color(red: 0.86, green: 0.79, blue: 0.66), Color(red: 0.96, green: 0.93, blue: 0.85)]
+                : [Color(white: 0.90), Color(white: 0.99)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            VStack { Spacer(); Rectangle().fill(.white.opacity(dark ? 0.06 : 0.38)).frame(height: 25) }
+            if styleID.contains("marble") {
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 12))
+                    path.addCurve(to: CGPoint(x: 88, y: 72), control1: CGPoint(x: 46, y: 4), control2: CGPoint(x: 12, y: 84))
+                }.stroke(.gray.opacity(0.15), lineWidth: 2)
+            }
+            if let product {
+                Image(uiImage: product).resizable().scaledToFit().padding(15)
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 5)
+            } else {
+                Image(systemName: "shippingbox").font(.system(size: 25, weight: .ultraLight))
+                    .foregroundStyle(dark ? .white.opacity(0.75) : .black.opacity(0.35))
+            }
+        }
+        .accessibilityLabel("Style illustration")
     }
 }
 

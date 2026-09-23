@@ -69,12 +69,18 @@ struct CaptureView: View {
             }
             .padding(.vertical, 12)
         }
-        .preferredColorScheme(.dark)
+        // Keep camera controls dark without forcing the product workflow
+        // sheets (or the other tabs) into dark mode.
+        .environment(\.colorScheme, .dark)
         .task {
             cutouts = appEnvironment.captureDraft.draft.cutouts
             latestCutout = cutouts.last
             async let loadingRules: Void = rules.load()
+            #if DEBUG
+            if !DemoMode.isActive { await camera.start() }
+            #else
             await camera.start()
+            #endif
             await loadingRules
         }
         .onDisappear {

@@ -28,7 +28,12 @@ final class AppEnvironment {
     private(set) var cacheError: String?
 
     init() {
+        #if DEBUG
+        let api = APIClient(baseURL: AppConfig.apiBaseURL,
+                            session: DemoMode.isActive ? DemoTransport.session : .shared)
+        #else
         let api = APIClient(baseURL: AppConfig.apiBaseURL)
+        #endif
         self.api = api
         self.auth = AuthStore(api: api)
         self.billing = BillingStore(api: api)
@@ -61,6 +66,14 @@ final class AppEnvironment {
         // account cache, so seed the freshly built store afterwards.
         auth.startDemoSession(DemoData.user)
         products.seedDemo(DemoData.products)
+        captureDraft.draft = CaptureDraft(cutouts: [DemoData.cutout],
+            name: "Ceramic pour-over dripper", category: "Home & Kitchen › Coffee", industry: .home)
+        productProgress.update("demo-1") {
+            $0.industry = .home
+            $0.styleID = "marble"
+            $0.angles = 3
+            $0.marketplaces = ["tiktok_shop"]
+        }
         billing.enableDemo()
         Task { await billing.seedDemo(status: DemoData.billingStatus) }
     }
@@ -73,8 +86,14 @@ final class AppEnvironment {
     func studio(for productID: String) -> StudioStore {
         let key = productID.lowercased()
         if let store = studioStores[key] { return store }
+        #if DEBUG
+        let imageSession = DemoMode.isActive ? DemoTransport.session : URLSession.shared
+        #else
+        let imageSession = URLSession.shared
+        #endif
         let store = StudioStore(api: api, productID: productID,
-            cacheDirectory: accountCache?.directory.appendingPathComponent("studio", isDirectory: true))
+            cacheDirectory: accountCache?.directory.appendingPathComponent("studio", isDirectory: true),
+            imageSession: imageSession)
         studioStores[key] = store
         return store
     }

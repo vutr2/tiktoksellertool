@@ -26,6 +26,7 @@ struct MarketplacesView: View {
     @State private var isSubmitting = false
     @State private var restoredChoices = false
     @State private var progressOwner: ProductProgressStore?
+    @State private var showingScriptOptions = false
 
     init(product: ProductDTO, onGenerated: @escaping (GenerateResultDTO) -> Void) {
         self.init(productID: product.id, onGenerated: onGenerated)
@@ -40,19 +41,28 @@ struct MarketplacesView: View {
 
     private var rules: RulesStore { appEnvironment.rules }
     private var generation: GenerationStore { appEnvironment.generation }
+    private var hasLockedSelection: Bool {
+        guard let status = appEnvironment.billing.status else { return false }
+        return selected.contains { !status.allowedMarketplaces.contains($0) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    headline
+                VStack(alignment: .leading, spacing: 12) {
+                    headline.padding(.bottom, 16)
+                    if rules.isLoading { ProgressView("Loading marketplaces…") }
+                    if rules.loadFailed {
+                        Button("Retry loading marketplaces") { Task { await rules.load() } }
+                            .font(.subheadline)
+                    }
                     ForEach(rules.marketplaces) { marketplace in
                         row(marketplace)
                     }
-                    scriptsRow
+                    DisclosureGroup("Ad scripts · optional", isExpanded: $showingScriptOptions) { scriptsRow }
+                        .font(.caption).foregroundStyle(.secondary).padding(.top, 8)
                         .disabled(isSubmitting || generation.pendingRequest(productID: productID) != nil)
 
                     if let message = generation.errorMessage {
@@ -64,12 +74,15 @@ struct MarketplacesView: View {
                         Text(message).font(.footnote).foregroundStyle(.orange)
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 22).padding(.bottom, 18)
+                .background(WorkflowStyle.surface)
             }
 
             footer
         }
-        .background(Color(.systemGroupedBackground))
+        .background(WorkflowStyle.background)
+        .tint(.primary)
+        .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(isSubmitting)
         .sheet(isPresented: $showingPlans) { PaywallView() }
         .sheet(isPresented: $showingAIConsent) {
@@ -115,24 +128,15 @@ struct MarketplacesView: View {
     }
 
     private var header: some View {
-        HStack {
-            Button("Back") { dismiss() }
-                .disabled(isSubmitting)
-            Spacer()
-            Text("Marketplaces").font(.headline)
-            Spacer()
-            Text("4 of 4").foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        WorkflowHeader(title: "Marketplaces", step: "3 of 4", isBusy: isSubmitting) { dismiss() }
     }
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("One photo, four sets of rules.")
-                .font(.largeTitle.bold())
+                .font(.title3.weight(.bold))
             Text("We check every asset against the rules for each marketplace you pick.")
-                .foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(.secondary)
         }
     }
 
@@ -148,30 +152,28 @@ struct MarketplacesView: View {
             HStack(spacing: 14) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(selected.contains(marketplace.id) ? Color.primary : Color.clear)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.5)))
-                    .frame(width: 26, height: 26)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(WorkflowStyle.border))
+                    .frame(width: 21, height: 21)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(marketplace.displayName).font(.headline)
+                    Text(marketplace.displayName).font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selected.contains(marketplace.id) ? .primary : .secondary)
                     Text(marketplace.summary)
-                        .font(.footnote)
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Text(marketplace.requiresProPlan ? "Pro" : "Included")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(marketplace.requiresProPlan ? .yellow.opacity(0.25) : .green.opacity(0.2),
-                                in: Capsule())
-                    .foregroundStyle(marketplace.requiresProPlan ? .orange : .green)
+                WorkflowPill(text: marketplace.requiresProPlan ? "Pro" : "Included",
+                             tint: marketplace.requiresProPlan ? WorkflowStyle.amber : WorkflowStyle.green)
             }
-            .padding(16)
-            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
+            .frame(minHeight: 38)
+            .workflowCard(padding: 14, radius: 14)
         }
         .buttonStyle(.plain)
+        .accessibilityValue(selected.contains(marketplace.id) ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selected.contains(marketplace.id) ? .isSelected : [])
         .disabled(isSubmitting || generation.pendingRequest(productID: productID) != nil)
     }
 
@@ -185,14 +187,13 @@ struct MarketplacesView: View {
             Stepper("\(scriptCount)", value: $scriptCount, in: 0...5)
                 .fixedSize()
         }
-        .padding(16)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.vertical, 12)
     }
 
     private var footer: some View {
         VStack(spacing: 12) {
             Text(costCaption)
-                .font(.footnote)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             if !selected.isEmpty, !generation.isQuoting, generation.quotedCredits == nil {
                 Button("Retry credit estimate") { Task { await requote() } }
@@ -201,34 +202,34 @@ struct MarketplacesView: View {
             if generation.needsMoreCredits {
                 Button("View plans and credits") { showingPlans = true }
             }
-            Button(action: generate) {
+            Button {
+                if hasLockedSelection { showingPlans = true } else { generate() }
+            } label: {
                 Group {
                     if generation.isGenerating {
                         ProgressView().tint(.white)
                     } else {
-                        Text(generation.pendingRequest(productID: productID) == nil ? "Generate listing" : "Resume listing").font(.headline)
+                        Text(hasLockedSelection ? "Unlock selected marketplaces" :
+                            generation.pendingRequest(productID: productID) == nil ? "Generate listing" : "Resume listing")
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(canGenerate ? Color.black : Color.gray.opacity(0.4))
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
-            .disabled(!canGenerate)
+            .buttonStyle(WorkflowPrimaryButtonStyle())
+            .disabled(hasLockedSelection ? isSubmitting || generation.isGenerating : !canGenerate)
         }
         .padding(20)
     }
 
-    /// "Estimated cost · 6 credits of your 394 this month", matching the design.
+    /// The estimate and available balance come from the server.
     private var costCaption: String {
         guard let credits = generation.quotedCredits else { return "Estimated cost · —" }
         guard let balance = generation.balance else { return "Estimated cost · \(credits) credits" }
-        return "Estimated cost · \(credits) credits of your \(balance) this month"
+        return "Estimated cost · \(credits) credits · \(balance) available"
     }
 
     private var canGenerate: Bool {
         !selected.isEmpty && !generation.isGenerating && !isSubmitting
+            && !hasLockedSelection
             && !generation.isQuoting && confirmedQuoteKey == quoteKey
             && generation.quotedCredits != nil
     }

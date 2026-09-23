@@ -49,14 +49,12 @@ struct ProductDetailsView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 18) {
                     cutoutCard
                     field("Product name", text: $name, placeholder: "Ceramic pour-over dripper")
-                    field("Category", text: $category, placeholder: "Home & Kitchen › Coffee")
-                    industryField
+                    categoryField
                     featuresField
 
                     if let message = store.errorMessage {
@@ -65,7 +63,8 @@ struct ProductDetailsView: View {
                             .foregroundStyle(.red)
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 22).padding(.bottom, 20)
+                .background(WorkflowStyle.surface)
                 .disabled(isSubmitting || hasSubmitted)
 
                 if hasSubmitted && savedProduct == nil && !isSubmitting {
@@ -85,7 +84,9 @@ struct ProductDetailsView: View {
 
             continueButton
         }
-        .background(Color(.systemGroupedBackground))
+        .background(WorkflowStyle.background)
+        .tint(.primary)
+        .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(isSubmitting)
         .task {
             guard !restoredDraft else { return }
@@ -144,16 +145,7 @@ struct ProductDetailsView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack {
-            Button("Back") { dismiss() }
-                .disabled(isSubmitting)
-            Spacer()
-            Text("Product details").font(.headline)
-            Spacer()
-            Text("2 of 4").foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        WorkflowHeader(title: "Product details", step: "2 of 4", isBusy: isSubmitting) { dismiss() }
     }
 
     // MARK: Cutout
@@ -164,11 +156,11 @@ struct ProductDetailsView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .frame(maxHeight: 220)
+                    .frame(height: 140)
             } else {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(.secondarySystemBackground))
-                    .frame(height: 220)
+                    .frame(height: 140)
                     .overlay {
                         Text("No photo yet")
                             .font(.footnote)
@@ -178,14 +170,14 @@ struct ProductDetailsView: View {
 
             if mainCutout != nil {
                 HStack(spacing: 8) {
-                    Circle().fill(.green).frame(width: 8, height: 8)
+                    Circle().fill(WorkflowStyle.green).frame(width: 5, height: 5)
                     Text("Background removed on device")
-                        .font(.footnote)
+                        .font(.caption)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.green.opacity(0.15), in: Capsule())
-                .foregroundStyle(.green)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(WorkflowStyle.green.opacity(0.10), in: Capsule())
+                .foregroundStyle(WorkflowStyle.green)
             }
 
             if cutouts.count > 1 {
@@ -195,45 +187,50 @@ struct ProductDetailsView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(16)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .workflowCard(padding: 16, radius: 14)
     }
 
     // MARK: Fields
 
     private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
+            Text(label).font(.caption).foregroundStyle(.secondary)
             TextField(placeholder, text: text)
                 .textInputAutocapitalization(.sentences)
                 .autocorrectionDisabled()
-                .padding(14)
-                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+                .font(.subheadline)
+                .workflowCard(padding: 13)
         }
     }
 
-    private var industryField: some View {
+    private var categoryField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Industry").font(.subheadline).foregroundStyle(.secondary)
-            Picker("Industry", selection: $industry) {
-                ForEach(Industry.allCases) { Text("\($0.emoji) \($0.label)").tag($0) }
+            HStack {
+                Text("Category").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Menu {
+                    Picker("Industry", selection: $industry) {
+                        ForEach(Industry.allCases) { Text($0.label).tag($0) }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(industry.label)
+                        Image(systemName: "chevron.down")
+                    }.font(.caption2).foregroundStyle(.secondary)
+                }.accessibilityLabel("Industry, \(industry.label)")
             }
-            .pickerStyle(.menu)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
-            Text("Tailors the studio styles, listing voice, and hashtags.")
-                .font(.caption).foregroundStyle(.secondary)
+            TextField("Home & Kitchen › Coffee", text: $category)
+                .textInputAutocapitalization(.sentences).autocorrectionDisabled()
+                .font(.subheadline).workflowCard(padding: 13)
         }
     }
 
     private var featuresField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Key features (optional)").font(.subheadline).foregroundStyle(.secondary)
+            Text("Key features (optional)").font(.caption).foregroundStyle(.secondary)
             TextField("What makes it different?", text: $keyFeatures, axis: .vertical)
-                .lineLimit(3...6)
-                .padding(14)
-                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+                .lineLimit(1...4).font(.subheadline)
+                .workflowCard(padding: 13)
         }
     }
 
@@ -245,15 +242,11 @@ struct ProductDetailsView: View {
                 if store.isSaving {
                     ProgressView().tint(.white)
                 } else {
-                    Text("Continue").font(.headline)
+                    Text("Continue")
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(canContinue ? Color.black : Color.gray.opacity(0.4))
-            .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+        .buttonStyle(WorkflowPrimaryButtonStyle())
         .disabled(!canContinue)
         .padding(20)
     }
