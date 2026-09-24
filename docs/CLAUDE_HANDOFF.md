@@ -1,5 +1,82 @@
 # ListingForge development handoff
 
+## Latest handoff — Codex to Claude, 25 September 2026
+
+**Start here.** Earlier dated sections below are historical reviews, not the
+current implementation checklist. In particular, the old missing-production-URL,
+single-cutout, comma-splitting and missing-draft notes must not be treated as
+fresh findings without checking the current code. This shared document is the
+handoff; no running Claude session has acknowledged these changes yet.
+
+### Completed and committed
+
+- `0ce44a1` — refreshed Product details, Marketplaces, Review, Convert, Paywall
+  and Studio to follow the owner's supplied designs. See
+  [UI_REFRESH.md](UI_REFRESH.md) for behavior and intentional limitations.
+- `e014274` — Products now has two-column square photo cards, names below,
+  three-dot Hide/Show/Delete menus, top-left Select mode, Select all, and bulk
+  hide/show/delete. Hidden products can be shown again through the library menu.
+  See [PRODUCT_LIBRARY.md](PRODUCT_LIBRARY.md) for endpoints and cache behavior.
+- Deletion asks for confirmation, verifies account ownership, cleans the
+  product's private photo folder before deleting its row, and leaves failed
+  cleanup retryable. Only server-confirmed successes are removed on the client.
+  Corresponding local caches are cleared; deleted IDs prevent stale offline
+  cards from reappearing. Exported device photo-library images are retained.
+- Visibility uses the existing `products.attributes` JSON; **no new migration
+  or dependency** was added for Products management. Pagination now lets the
+  app load older products beyond the former first-100 limit. Thumbnails are
+  authenticated and cached privately.
+- Fixed Archive version generation in `ios/project.yml`: Info.plist now uses
+  `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, rather than literal 1.0/1.
+  Both built simulator bundles were verified as **2.1.0 (3)**. Regenerate with
+  XcodeGen; do not edit the generated project or Info.plist by hand.
+
+### Verified locally
+
+- Backend production build passed; **135 backend tests passed**, including
+  deletion ownership, active listing reservation, nested/paginated photo cleanup
+  and storage-failure cases.
+- **185 iOS unit tests in 25 suites passed**; Debug and Release simulator builds
+  passed. Release emitted an existing unrelated unnecessary-`await` warning in
+  `ScriptPlayerView.swift`.
+- Installed and launched Products on the dedicated iPhone 17 / iOS 26.5
+  simulator with `--demo --screen products`. This uses local fixture data.
+  Screenshot on this machine: `/tmp/listingforce-products-grid.png` (temporary,
+  not a repository asset).
+- No real customer deletion, paid generation, production deployment, migration,
+  signed device archive or TestFlight upload was performed in these changes.
+
+### What Claude should do next
+
+1. Read the two feature documents above and inspect `git status` before editing.
+   Preserve the completed UI, account isolation, resumable drafts and saved
+   Studio results. Do not restart the historical milestone checklist below.
+2. For rollout, deploy the API containing the new DELETE/PATCH/thumbnail routes
+   **before** distributing the new iOS build. Source currently points at
+   `https://tiktoksellertool.vercel.app`; production deployment contents have not
+   been verified in this pass. Local commits do not update Vercel or TestFlight.
+3. Regenerate the Xcode project, check the chosen App Store version/build is
+   valid for the next upload, then create and inspect a new signed archive.
+   Old archives and already-installed TestFlight builds remain unchanged.
+4. Verify on a test account/device: individual and bulk hide/show/delete,
+   canceling deletion, relaunch/offline behavior, retry after a failed delete,
+   reopening saved photos/listings, and no access to another account's data.
+   Simulator compilation is not an App Review or production sign-off.
+5. The separate durable Studio job/atomic credit settlement work remains pending:
+   [STUDIO_ASYNC_PROPOSAL.md](STUDIO_ASYNC_PROPOSAL.md). Process-local caching
+   does not guarantee single charging across Vercel instances. Its schema
+   proposal is distinct from the generation and billing migrations the owner
+   already approved for local implementation/testing. Do not infer approval for
+   Studio schema changes or production migration from those earlier approvals.
+
+Additional boundaries: individual product deletion does not purge the shared
+account-level Studio content cache or refund credits; account deletion handles
+that cache. Convert checks text rules, not image pixels. StoreKit prices and
+trial eligibility remain live StoreKit data, not promises copied from mockups.
+Never put `.env` contents, API keys or private signing material in this handoff.
+
+## Historical handoffs — read with their original dates
+
 Updated 2026-09-13 by Codex with the App Store readiness review requested by the owner.
 **Claude: read [APP_STORE_READINESS_REVIEW.md](APP_STORE_READINESS_REVIEW.md)
 before continuing. The current build is not ready for App Store submission.**
