@@ -11,7 +11,7 @@ import {
   AnthropicScriptProvider,
   AnthropicVisionProvider,
 } from "./ai/anthropic.ts";
-import type { ModelUsage, ProductFacts } from "./ai/types.ts";
+import type { ModelUsage, OutputLanguage, ProductFacts } from "./ai/types.ts";
 import { CREDIT_COST, InsufficientCreditsError } from "./credits.ts";
 import { createHash } from "node:crypto";
 import { rulesFor } from "./rules/registry.ts";
@@ -31,6 +31,8 @@ export interface GenerateInput {
   marketplaces: MarketplaceId[];
   /** 0 skips ad scripts entirely. */
   scriptCount: number;
+  /** Output language for title/description/scripts. Defaults to English. */
+  language?: OutputLanguage;
 }
 
 export interface GeneratedAsset {
@@ -50,6 +52,24 @@ export interface GenerateResult {
   failures: { marketplace: string; reason: string }[];
   creditsCharged: number;
   balanceAfter: number;
+}
+
+/**
+ * The part of the request that identifies the work, used as the idempotency
+ * key. Exported so its stability can be tested directly.
+ *
+ * Language belongs here: the same marketplaces in Vietnamese are a different
+ * generation. Leaving it out would let a replay of a completed request hand
+ * back the other language's cached result, and would stop `begin_generation`
+ * from seeing the mismatch as a conflict. It is included only when it is not
+ * the default, so requests opened before this field existed keep their hash.
+ */
+export function immutableInputOf(input: GenerateInput) {
+  return {
+    marketplaces: input.marketplaces,
+    scriptCount: input.scriptCount,
+    ...(input.language && input.language !== "en" ? { language: input.language } : {}),
+  };
 }
 
 /** What the work will cost, quoted before anything runs (design step 3). */
@@ -76,7 +96,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
 
   if (!input.requestId) throw new GenerationRequestError("This generation needs a request identifier.", 400);
   if (product.attributes?.captureStatus === "uploading") throw new GenerationRequestError("Finish uploading your photos first.", 409);
-  const immutableInput = { marketplaces: input.marketplaces, scriptCount: input.scriptCount };
+  const immutableInput = immutableInputOf(input);
   const inputHash = createHash("sha256").update(JSON.stringify(immutableInput)).digest("hex");
   const { data: reservation, error: reserveError } = await db.rpc("begin_generation", {
     p_request_id: input.requestId, p_org_id: orgId, p_product_id: input.productId,
@@ -123,6 +143,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         voice: pack?.voice,
         hashtagGuidance: pack?.hashtagGuidance,
         avoid,
+        language: input.language,
       });
       const usage = { ...copy.usage, creditsCharged: 0 };
       usages.push(usage);
@@ -188,6 +209,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         facts,
         marketplace: rulesFor(input.marketplaces[0]).displayName,
         count: input.scriptCount,
+        language: input.language,
       });
       const usage = { ...scripts.usage, creditsCharged: 0 };
       usages.push(usage);

@@ -14,6 +14,7 @@ import {
   type ListingCopy,
   type ListingCopyProvider,
   type ModelResult,
+  type OutputLanguage,
   type ProductFacts,
   type ProductPhoto,
   type ScriptProvider,
@@ -33,6 +34,21 @@ Do not generate sexual content involving minors, threats, hateful abuse, or inst
 for wrongdoing. Do not promote illegal products. Do not invent certifications, health
 benefits, brand affiliation, material, or measurements. If the request is unsafe, refuse
 it rather than producing a listing. Follow the requested JSON format for safe requests.`;
+
+const LANGUAGE_NAMES: Record<OutputLanguage, string> = { en: "English", vi: "Vietnamese" };
+
+/**
+ * Asks for a non-English answer. Empty for English so the English prompt — the
+ * one every existing trace was produced under — is byte-for-byte unchanged.
+ *
+ * Product text is exempted explicitly: the model is told to leave brand names
+ * and transcribed label text alone, because a translated label no longer
+ * matches the physical product.
+ */
+export function languageRule(language: OutputLanguage | undefined): string {
+  if (!language || language === "en") return "";
+  return `\nWrite every value in ${LANGUAGE_NAMES[language]}. Keep the JSON keys in English. Leave brand names and any text transcribed from the product exactly as they appear — do not translate them.\n`;
+}
 
 const VISION_PROMPT = `You are helping a marketplace seller describe a product from its photo.
 
@@ -98,6 +114,7 @@ export class AnthropicScriptProvider implements ScriptProvider {
     facts: ProductFacts;
     marketplace: string;
     count: number;
+    language?: OutputLanguage;
   }): Promise<ModelResult<AdScript[]>> {
     const model = env.scriptModel();
     const prompt = scriptPrompt(input);
@@ -122,7 +139,12 @@ export class AnthropicScriptProvider implements ScriptProvider {
   }
 }
 
-function scriptPrompt(input: { facts: ProductFacts; marketplace: string; count: number }): string {
+function scriptPrompt(input: {
+  facts: ProductFacts;
+  marketplace: string;
+  count: number;
+  language?: OutputLanguage;
+}): string {
   const { facts, marketplace, count } = input;
   return `Write ${count} short-form video ad scripts for ${marketplace}.
 
@@ -134,7 +156,7 @@ Rules:
 - Each script opens with a hook that earns the first three seconds.
 - Claim nothing that is not in the product details above.
 - Around 30 seconds when read aloud.
-
+${languageRule(input.language)}
 Reply with JSON only, no prose and no code fences:
 [{ "hook": string, "beats": string[], "durationSeconds": number }]`;
 }
@@ -293,6 +315,7 @@ export class AnthropicListingProvider implements ListingCopyProvider {
     voice?: string;
     hashtagGuidance?: string;
     avoid?: string[];
+    language?: OutputLanguage;
   }): Promise<ModelResult<ListingCopy>> {
     const model = env.scriptModel();
     const prompt = listingPrompt(input);
@@ -330,6 +353,7 @@ function listingPrompt(input: {
   voice?: string;
   hashtagGuidance?: string;
   avoid?: string[];
+  language?: OutputLanguage;
 }): string {
   const { facts, marketplaceName, constraints } = input;
 
@@ -368,7 +392,7 @@ ${allRules}
 ${avoidBlock}
 Claim nothing that is not in the details above — an invented measurement or
 material becomes a false claim in a live listing.
-
+${languageRule(input.language)}
 Reply with JSON only, no prose and no code fences:
 { "title": string, "bullets": string[], "description": string | null, "hashtags": string[] }`;
 }

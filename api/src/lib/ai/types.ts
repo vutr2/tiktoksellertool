@@ -70,6 +70,15 @@ export interface VisionProvider {
 
 // ── Text: listing copy and ad scripts ────────────────────────────────────────
 
+/**
+ * The language the seller wants their copy written in.
+ *
+ * Only generated prose is translated. Text transcribed from the product
+ * (`ProductFacts.visibleText`) stays verbatim — translating a label is how a
+ * listing stops matching what is actually in the box.
+ */
+export type OutputLanguage = "en" | "vi";
+
 export interface AdScript {
   /** The first three seconds. TikTok lives or dies here (SPEC §2). */
   hook: string;
@@ -107,6 +116,8 @@ export interface ListingCopyProvider {
     hashtagGuidance?: string;
     /** Short "avoid this / do that instead" hints from the industry pack. */
     avoid?: string[];
+    /** Defaults to English when absent. */
+    language?: OutputLanguage;
   }): Promise<ModelResult<ListingCopy>>;
 }
 
@@ -115,6 +126,8 @@ export interface ScriptProvider {
     facts: ProductFacts;
     marketplace: string;
     count: number;
+    /** Defaults to English when absent. */
+    language?: OutputLanguage;
   }): Promise<ModelResult<AdScript[]>>;
 }
 
