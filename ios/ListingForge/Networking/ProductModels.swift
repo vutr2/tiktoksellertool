@@ -26,8 +26,11 @@ struct ProductDTO: Codable, Identifiable, Hashable {
     /// Storage path, not a URL — the bucket is private and links are signed.
     let cutoutPath: String?
     let createdAt: String
+    var isHidden: Bool? = nil
+    var deletionPending: Bool? = nil
 }
 
 struct ProductListResponse: Decodable {
     let products: [ProductDTO]
+    let hasMore: Bool?
 }

@@ -3,9 +3,8 @@
 //  ListingForge
 //
 //  Creating and listing products. The server owns the record; SwiftData only
-//  mirrors it for offline viewing (SPEC §9 — "the server wins on every
-//  conflict"), so nothing here writes to the cache. The caller does that after
-//  a successful create.
+//  mirrors it for offline viewing. Account-scoped snapshots keep visibility
+//  and confirmed deletions consistent when the device is offline.
 //
 
 import Foundation
@@ -17,6 +16,11 @@ import CryptoKit
 final class ProductStore {
 
     private(set) var products: [ProductDTO] = []
+    private(set) var isUpdating = false
+    private(set) var updateProgress: String?
+    private(set) var updateError: String?
+    private(set) var deletedIDs: Set<String> = []
+    private(set) var thumbnailReloadID = UUID()
     private(set) var isSaving = false
     private(set) var isLoading = false
     private(set) var isOffline = false
@@ -34,6 +38,9 @@ final class ProductStore {
     init(api: APIClient, cacheDirectory: URL? = nil) {
         self.api = api
         self.cacheDirectory = cacheDirectory
+        if let file = cacheDirectory?.appendingPathComponent("deleted-products.json"),
+           let bytes = try? Data(contentsOf: file),
+           let ids = try? JSONDecoder().decode(Set<String>.self, from: bytes) { deletedIDs = ids }
         if let url = cacheDirectory?.appendingPathComponent("products.json"),
            let data = try? Data(contentsOf: url),
            let saved = try? JSONDecoder().decode([ProductDTO].self, from: data) {
@@ -98,6 +105,7 @@ final class ProductStore {
     /// Seeds sample products for screenshots and stops `load()` from hitting the network.
     func seedDemo(_ products: [ProductDTO]) {
         demoActive = true
+        deletedIDs = []
         self.products = products
     }
     #endif
@@ -106,7 +114,8 @@ final class ProductStore {
         #if DEBUG
         if demoActive { return }
         #endif
-        guard !isInvalidated else { return }
+        guard !isInvalidated, !isUpdating else { return }
+        thumbnailReloadID = UUID()
         let issued = UUID()
         loadID = issued
         isLoading = true
@@ -114,9 +123,18 @@ final class ProductStore {
         defer { if issued == loadID { isLoading = false } }
 
         do {
-            let response: ProductListResponse = try await api.get("api/products", token: token)
-            guard !isInvalidated, issued == loadID, !Task.isCancelled else { return }
-            products = response.products
+            var fetched: [ProductDTO] = []
+            var seen: Set<String> = []
+            var page = 0
+            while true {
+                let path = page == 0 ? "api/products" : "api/products?page=\(page)"
+                let response: ProductListResponse = try await api.get(path, token: token)
+                guard !isInvalidated, issued == loadID, !Task.isCancelled else { return }
+                fetched.append(contentsOf: response.products.filter { seen.insert($0.id).inserted })
+                guard response.hasMore == true, !response.products.isEmpty else { break }
+                page += 1
+            }
+            products = fetched
             isOffline = false
             cacheProducts()
         } catch {
@@ -124,6 +142,73 @@ final class ProductStore {
             isOffline = true
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    enum LibraryAction: Equatable { case delete, hide, unhide }
+
+    /// Only confirmed successes leave the grid; failed items remain selected.
+    func update(_ ids: Set<String>, action: LibraryAction, token: String) async -> Set<String> {
+        guard !isInvalidated, !isUpdating else { return [] }
+        isUpdating = true
+        loadID = UUID() // Discard a list response issued before the mutation.
+        isLoading = false
+        updateError = nil
+        defer { isUpdating = false; updateProgress = nil }
+        var succeeded: Set<String> = []
+        var failures: [String] = []
+        for (index, id) in ids.sorted().enumerated() {
+            guard !isInvalidated, !Task.isCancelled else { break }
+            updateProgress = "Updating \(index + 1) of \(ids.count)…"
+            do {
+                try await performUpdate(id, action: action, token: token)
+                guard !isInvalidated else { break }
+                if action == .delete {
+                    deletedIDs.insert(id)
+                    products.removeAll { $0.id == id }
+                    if let file = thumbnailFile(id) { try? FileManager.default.removeItem(at: file) }
+                } else if let item = products.firstIndex(where: { $0.id == id }) {
+                    products[item].isHidden = action == .hide
+                }
+                succeeded.insert(id)
+                cacheProducts()
+                if let file = cacheDirectory?.appendingPathComponent("deleted-products.json") {
+                    do { try JSONEncoder().encode(deletedIDs).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]) }
+                    catch { cacheWarning = "This device could not update its offline product cache." }
+                }
+            } catch { failures.append(error.localizedDescription) }
+        }
+        if !failures.isEmpty { updateError = "\(failures.count) product(s) could not be updated. " + (failures.first ?? "Try again.") }
+        return succeeded
+    }
+
+    private func performUpdate(_ id: String, action: LibraryAction, token: String) async throws {
+        #if DEBUG
+        if demoActive { return }
+        #endif
+        if action == .delete {
+            try await api.delete("api/products/\(id)", token: token)
+        } else {
+            struct Visibility: Encodable { let hidden: Bool }
+            try await api.patch("api/products/\(id)", body: Visibility(hidden: action == .hide), token: token)
+        }
+    }
+
+    private func thumbnailFile(_ id: String) -> URL? {
+        cacheDirectory?.appendingPathComponent("thumbnails", isDirectory: true)
+            .appendingPathComponent(StableAssetIdentity.make([id]) + ".image")
+    }
+
+    func thumbnail(for id: String, token: String) async throws -> Data {
+        guard !isInvalidated, !deletedIDs.contains(id) else { throw CancellationError() }
+        let file = thumbnailFile(id)
+        if let file, let bytes = try? Data(contentsOf: file) { return bytes }
+        let bytes = try await api.imageData("api/products/\(id)/thumbnail", token: token)
+        guard !isInvalidated, !deletedIDs.contains(id), !Task.isCancelled else { throw CancellationError() }
+        if let file {
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? bytes.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+        return bytes
     }
 
     /// The draft UUID and image hashes keep retries tied to the same product.

@@ -15,9 +15,25 @@ struct ProductsView: View {
     @State private var completedDraft: GenerateResultDTO?
 
     private var store: ProductStore { appEnvironment.products }
-    private var hasProducts: Bool {
-        !store.products.isEmpty || (!loadedEmptyList && !cached.isEmpty)
+    @State private var selecting = false
+    @State private var selectedIDs: Set<String> = []
+    @State private var showingHidden = false
+    @State private var pendingDeletion: Set<String> = []
+    @State private var confirmingDeletion = false
+    @State private var managementError: String?
+
+    private var allProducts: [ProductDTO] {
+        let products = !store.products.isEmpty || loadedEmptyList ? store.products : cached.map {
+            ProductDTO(id: $0.serverID, name: $0.name, category: $0.category,
+                       cutoutPath: $0.cutoutURL, createdAt: $0.updatedAt.ISO8601Format())
+        }
+        return products.filter { !store.deletedIDs.contains($0.id) }
     }
+    private var visibleProducts: [ProductDTO] {
+        allProducts.filter { ($0.isHidden == true) == showingHidden }
+    }
+    private var visibleIDs: Set<String> { Set(visibleProducts.map(\.id)) }
+    private var busy: Bool { store.isUpdating || isOpening }
 
     private struct OpenedListing: Identifiable {
         let listing: ListingAssetsDTO
@@ -27,38 +43,75 @@ struct ProductsView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if hasProducts || appEnvironment.captureDraft.draft.hasContent {
-                    list
-                } else if store.isLoading {
-                    ProgressView("Loading products…")
-                } else if let message = store.errorMessage {
-                    ContentUnavailableView {
-                        Label("Couldn’t load products", systemImage: "wifi.exclamationmark")
-                    } description: {
-                        Text(message)
-                    } actions: {
-                        Button("Try again") { Task { await load() } }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if !showingHidden && appEnvironment.captureDraft.draft.hasContent { draftCard }
+                    if let message = store.errorMessage {
+                        Label(message, systemImage: "wifi.exclamationmark")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Button("Try again") { Task { await load() } }.font(.subheadline)
                     }
-                } else {
-                    ContentUnavailableView("No products yet", systemImage: "shippingbox",
-                                           description: Text("Capture a product to get started."))
+                    if let message = cacheWarning ?? store.cacheWarning {
+                        Text(message).font(.footnote).foregroundStyle(WorkflowStyle.amber)
+                    }
+                    if visibleProducts.isEmpty {
+                        if store.isLoading { ProgressView("Loading products…").frame(maxWidth: .infinity) }
+                        else {
+                            ContentUnavailableView(showingHidden ? "No hidden products" : "No products yet",
+                                systemImage: showingHidden ? "eye.slash" : "shippingbox",
+                                description: Text(showingHidden ? "Products you hide will appear here. You can show them again anytime." : "Capture a product to get started, or check Hidden products in the menu."))
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)],
+                                  alignment: .leading, spacing: 24) {
+                            ForEach(visibleProducts) { product in productCard(product) }
+                        }
+                    }
+                }.padding(20)
+            }
+            .background(WorkflowStyle.background)
+            .navigationTitle(showingHidden ? "Hidden products" : "Products")
+            .tint(.primary)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(selecting ? "Done" : "Select") {
+                        selecting.toggle()
+                        selectedIDs = []
+                    }.disabled(busy || (!selecting && visibleProducts.isEmpty))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(showingHidden ? "Show products" : "Hidden products", systemImage: showingHidden ? "square.grid.2x2" : "eye.slash") {
+                            showingHidden.toggle()
+                            selectedIDs = []
+                        }
+                        if selecting {
+                            Button(selectedIDs == visibleIDs ? "Deselect all" : "Select all") {
+                                selectedIDs = selectedIDs == visibleIDs ? [] : visibleIDs
+                            }
+                        }
+                        Button("Refresh", systemImage: "arrow.clockwise") { Task { await load() } }
+                    } label: { Image(systemName: "ellipsis.circle").accessibilityLabel("Product library options") }
+                    .disabled(busy)
                 }
             }
-            .navigationTitle("Products")
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if selecting { selectionBar }
+            }
             .overlay {
-                if isOpening {
-                    ProgressView("Opening listing…").padding().background(.regularMaterial, in: Capsule())
+                if busy {
+                    ProgressView(store.updateProgress ?? "Opening listing…")
+                        .padding().background(.regularMaterial, in: Capsule())
                 }
             }
             .refreshable { await load() }
             .task { await load() }
+            .onChange(of: visibleIDs) { _, ids in selectedIDs.formIntersection(ids) }
             .sheet(item: $openedListing) { opened in
                 ReviewView(productName: opened.listing.product.name,
                            assets: opened.listing.assets.map(ReviewAsset.init),
                            productID: opened.listing.product.id,
-                           failures: opened.listing.failures,
-                           notice: opened.notice)
+                           failures: opened.listing.failures, notice: opened.notice)
             }
             .sheet(isPresented: $showingDraft, onDismiss: {
                 if let result = completedDraft {
@@ -73,69 +126,141 @@ struct ProductsView: View {
                         showingDraft = false
                     })
             }
-            .alert("Couldn’t open listing", isPresented: Binding(
-                get: { openError != nil },
-                set: { if !$0 { openError = nil } }
-            )) {
-                Button("OK") { openError = nil }
+            .confirmationDialog(pendingDeletion.count == 1 ? "Delete this product?" : "Delete \(pendingDeletion.count) products?",
+                                isPresented: $confirmingDeletion, titleVisibility: .visible) {
+                Button(pendingDeletion.count == 1 ? "Delete product" : "Delete \(pendingDeletion.count) products", role: .destructive) {
+                    perform(.delete, ids: pendingDeletion)
+                    pendingDeletion = []
+                }
+                Button("Cancel", role: .cancel) { pendingDeletion = [] }
             } message: {
-                Text(openError ?? "")
+                Text("The products, their captured photos and saved listings will be deleted from your account. This cannot be undone. Photos already exported to your photo library will remain there.")
             }
+            .alert("Product library", isPresented: Binding(
+                get: { openError != nil || managementError != nil },
+                set: { if !$0 { openError = nil; managementError = nil } }
+            )) {
+                Button("OK") { openError = nil; managementError = nil }
+            } message: { Text(managementError ?? openError ?? "") }
         }
     }
 
-    private var list: some View {
-        List {
-            if appEnvironment.captureDraft.draft.hasContent {
-                Section("Continue working") {
-                    Button { showingDraft = true } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label("Resume draft", systemImage: "arrow.clockwise")
-                            Text(appEnvironment.captureDraft.draft.name.isEmpty ? "Your captured product" : appEnvironment.captureDraft.draft.name)
-                                .font(.subheadline).foregroundStyle(.secondary)
-                            Text("Draft saved on this iPhone").font(.caption).foregroundStyle(.secondary)
+    private var draftCard: some View {
+        Button { showingDraft = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.clockwise").font(.title3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Resume draft").font(.subheadline.weight(.semibold))
+                    Text(appEnvironment.captureDraft.draft.name.isEmpty ? "Your captured product" : appEnvironment.captureDraft.draft.name)
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption)
+            }.workflowCard()
+        }.buttonStyle(.plain).disabled(busy)
+    }
+
+    private func activate(_ product: ProductDTO) {
+        if selecting {
+            if selectedIDs.contains(product.id) { selectedIDs.remove(product.id) }
+            else { selectedIDs.insert(product.id) }
+        } else if product.deletionPending == true { askToDelete([product.id]) }
+        else { open(product.id) }
+    }
+
+    private func productCard(_ product: ProductDTO) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { activate(product) } label: {
+                Rectangle().fill(WorkflowStyle.surface).aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        ProductThumbnail(store: store, product: product, token: appEnvironment.auth.token)
+                            .padding(12)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .overlay(RoundedRectangle(cornerRadius: 15)
+                        .stroke(selectedIDs.contains(product.id) ? Color.primary : WorkflowStyle.border,
+                                lineWidth: selectedIDs.contains(product.id) ? 2 : 0.8))
+                    .overlay(alignment: .topLeading) {
+                        if selecting {
+                            Image(systemName: selectedIDs.contains(product.id) ? "checkmark.circle.fill" : "circle")
+                                .font(.title2).symbolRenderingMode(.palette)
+                                .foregroundStyle(selectedIDs.contains(product.id) ? Color.primary : .secondary, WorkflowStyle.surface)
+                                .padding(10)
                         }
                     }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(product.name)
+            .accessibilityAddTraits(selectedIDs.contains(product.id) ? .isSelected : [])
+            HStack(alignment: .top, spacing: 4) {
+                Button { activate(product) } label: {
+                    Text(product.name).font(.subheadline.weight(.medium)).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 44, alignment: .topLeading)
+                }.buttonStyle(.plain)
+                if !selecting {
+                    Menu {
+                        Button(product.isHidden == true ? "Show product" : "Hide product", systemImage: product.isHidden == true ? "eye" : "eye.slash") {
+                            perform(product.isHidden == true ? .unhide : .hide, ids: [product.id])
+                        }.disabled(product.deletionPending == true)
+                        Button("Delete this product", systemImage: "trash", role: .destructive) { askToDelete([product.id]) }
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 44, height: 44, alignment: .top)
+                            .contentShape(Rectangle())
+                    }.accessibilityLabel("Options for \(product.name)")
                 }
             }
-            if let message = store.errorMessage {
-                Label("Showing saved products. \(message)", systemImage: "wifi.exclamationmark")
-                    .font(.footnote).foregroundStyle(.secondary)
+            if product.deletionPending == true {
+                Text("Deletion incomplete · tap to retry").font(.caption2).foregroundStyle(WorkflowStyle.red)
             }
-            if let cacheWarning {
-                Text(cacheWarning).font(.footnote).foregroundStyle(.orange)
-            }
-
-            if !store.products.isEmpty {
-                ForEach(store.products) { product in
-                    Button { open(product.id) } label: {
-                        row(name: product.name, category: product.category ?? "")
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isOpening)
-                }
-            } else if !loadedEmptyList {
-                ForEach(cached) { product in
-                    Button { open(product.serverID) } label: {
-                        row(name: product.name, category: product.category)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isOpening)
-                }
-            }
-        }
+        }.disabled(busy)
     }
 
-    private func row(name: String, category: String) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name).font(.headline)
-                if !category.isEmpty {
-                    Text(category).font(.subheadline).foregroundStyle(.secondary)
-                }
+    private var selectionBar: some View {
+        VStack(spacing: 12) {
+            Text("\(selectedIDs.count) selected").font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Button { perform(showingHidden ? .unhide : .hide, ids: selectedIDs) } label: {
+                    Label(showingHidden ? "Show selected" : "Hide selected", systemImage: showingHidden ? "eye" : "eye.slash")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }.buttonStyle(.bordered)
+                Button(role: .destructive) { askToDelete(selectedIDs) } label: {
+                    Label("Delete selected", systemImage: "trash").frame(maxWidth: .infinity, minHeight: 44)
+                }.buttonStyle(.bordered)
+            }.font(.subheadline).disabled(selectedIDs.isEmpty || busy)
+        }.padding(16).background(WorkflowStyle.surface)
+    }
+
+    private func askToDelete(_ ids: Set<String>) {
+        guard !busy, !ids.isEmpty else { return }
+        if appEnvironment.generation.isGenerating || ids.contains(where: { appEnvironment.studio(for: $0).isGenerating }) {
+            managementError = "Wait for generation to finish before deleting a product. You can hide it instead."
+            return
+        }
+        pendingDeletion = ids
+        confirmingDeletion = true
+    }
+
+    private func perform(_ action: ProductStore.LibraryAction, ids: Set<String>) {
+        guard !busy, !ids.isEmpty, let token = appEnvironment.auth.token else { return }
+        let requestedStore = store
+        Task {
+            let succeeded = await requestedStore.update(ids, action: action, token: token)
+            guard appEnvironment.auth.token == token, appEnvironment.products === requestedStore else { return }
+            var cleanupWarning: String?
+            for id in succeeded where action == .delete {
+                do { try appEnvironment.removeProductCache(id) }
+                catch { cleanupWarning = "Deleted online, but some offline files could not be removed from this device." }
+                for product in cached where product.serverID == id { modelContext.delete(product) }
             }
-            Spacer()
-            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+            if action == .delete {
+                do { try modelContext.save() }
+                catch { cleanupWarning = "Deleted online, but the offline list could not be updated." }
+            }
+            selectedIDs.subtract(succeeded)
+            if selectedIDs.isEmpty { selecting = false }
+            managementError = requestedStore.updateError
+            await load()
+            if let cleanupWarning { cacheWarning = cleanupWarning }
         }
     }
 
@@ -238,5 +363,38 @@ struct ProductsView: View {
             cachedAsset.validationStatus = asset.status
         }
         try modelContext.save()
+    }
+}
+
+
+private struct ProductThumbnail: View {
+    let store: ProductStore
+    let product: ProductDTO
+    let token: String?
+    @State private var image: UIImage?
+    @State private var loading = false
+
+    var body: some View {
+        Group {
+            if let image { Image(uiImage: image).resizable().scaledToFit() }
+            else if loading { ProgressView() }
+            else {
+                VStack(spacing: 8) {
+                    Image(systemName: "shippingbox").font(.system(size: 30, weight: .light))
+                    Text("No preview").font(.caption2)
+                }.foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityHidden(true)
+        .task(id: product.id + (product.cutoutPath ?? "") + store.thumbnailReloadID.uuidString) {
+            guard let token else { return }
+            loading = true
+            defer { loading = false }
+            do {
+                let bytes = try await store.thumbnail(for: product.id, token: token)
+                guard !Task.isCancelled else { return }
+                image = UIImage(data: bytes)
+            } catch { image = nil }
+        }
     }
 }

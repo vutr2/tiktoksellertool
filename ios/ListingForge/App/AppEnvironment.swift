@@ -98,6 +98,17 @@ final class AppEnvironment {
         return store
     }
 
+    func removeProductCache(_ id: String) throws {
+        let studio = studio(for: id)
+        var cleanupError: Error?
+        do { try studio.erase() } catch { cleanupError = error }
+        studioStores.removeValue(forKey: id.lowercased())
+        do { try generation.removeProduct(id) } catch { cleanupError = error }
+        productProgress.remove(id)
+        if captureDraft.draft.savedProduct?.id.lowercased() == id.lowercased() { captureDraft.reset() }
+        if let cleanupError { throw cleanupError }
+    }
+
     private func useAccount(_ user: UserDTO?) {
         billing.useAccount(userID: user?.id, token: auth.token)
         guard user?.id != accountCache?.userID || cacheError != nil else { return }

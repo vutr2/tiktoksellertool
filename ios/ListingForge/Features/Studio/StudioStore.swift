@@ -77,6 +77,13 @@ final class StudioStore {
         }
     }
 
+    func erase() throws {
+        invalidate()
+        if let directory, FileManager.default.fileExists(atPath: directory.path) {
+            try FileManager.default.removeItem(at: directory)
+        }
+    }
+
     func invalidate() { isInvalidated = true; results = []; catalog = [:] }
 
     func scenes(for industry: Industry) -> [StudioScene] { catalog[industry] ?? [] }

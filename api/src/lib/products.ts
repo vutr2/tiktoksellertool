@@ -126,6 +126,7 @@ async function ownedProduct(orgId: string, productId: string): Promise<ProductRo
   const { data, error } = await supabaseAdmin().from("products").select(PRODUCT_COLUMNS).eq("id", productId).eq("org_id", orgId).maybeSingle();
   if (error) throw new ProductError("Could not load this product. Try again.", 500);
   if (!data) throw new ProductError("That product could not be found.", 404);
+  if (data.attributes?.captureStatus === "deleting") throw new ProductError("This product is being deleted.", 409);
   return data as ProductRow;
 }
 
@@ -162,6 +163,15 @@ export async function uploadProductCutout(orgId: string, productId: string, inde
   try { await assertActiveOrganization(orgId); } catch (error) {
     const cleanup = await db.storage.from(CUTOUT_BUCKET).remove([path]);
     if (cleanup.error) throw new ProductError("Photo cleanup is incomplete. Retry deleting the account.", 500);
+    throw error;
+  }
+  try { await ownedProduct(orgId, productId); } catch (error) {
+    // A transient lookup failure is not proof of deletion. Retain the upload
+    // for retry unless the product is positively absent or marked deleting.
+    if (error instanceof ProductError && [404, 409].includes(error.status)) {
+      const cleanup = await db.storage.from(CUTOUT_BUCKET).remove([path]);
+      if (cleanup.error) throw new ProductError("Photo cleanup is incomplete. Retry deleting the product.", 500);
+    }
     throw error;
   }
 }

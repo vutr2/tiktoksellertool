@@ -48,23 +48,30 @@ export async function GET(request: Request) {
     return error("Not authorized.", 401);
   }
 
+  const page = Number(new URL(request.url).searchParams.get("page") ?? "0");
+  if (!Number.isSafeInteger(page) || page < 0 || page > 1_000_000) return error("Invalid products page.");
+  const pageSize = 100;
   const db = supabaseAdmin();
   const { data, error: dbError } = await db
     .from("products")
-    .select("id, name, category, cutout_url, created_at")
+    .select("id, name, category, cutout_url, created_at, attributes")
     .eq("org_id", claims.orgId)
-    .or("attributes->>captureStatus.is.null,attributes->>captureStatus.eq.ready")
+    .or("attributes->>captureStatus.is.null,attributes->>captureStatus.eq.ready,attributes->>captureStatus.eq.deleting")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .order("id", { ascending: false })
+    .range(page * pageSize, page * pageSize + pageSize);
   if (dbError) return error("Could not load your products.", 500);
 
   return json({
-    products: (data ?? []).map((row) => ({
+    hasMore: (data?.length ?? 0) > pageSize,
+    products: (data ?? []).slice(0, pageSize).map((row) => ({
       id: row.id as string,
       name: row.name as string,
       category: (row.category as string | null) ?? null,
       cutoutPath: (row.cutout_url as string | null) ?? null,
       createdAt: row.created_at as string,
+      isHidden: row.attributes?.hidden === true,
+      deletionPending: row.attributes?.captureStatus === "deleting",
     })),
   });
 }

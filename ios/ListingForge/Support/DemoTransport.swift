@@ -58,7 +58,7 @@ enum DemoTransport {
     static func response(for request: URLRequest) -> (Int, String, Data) {
         let path = request.url?.path ?? ""
         let method = request.httpMethod ?? "GET"
-        if path.hasPrefix("/demo-image/") { return (200, "image/png", studioImage) }
+        if path.hasPrefix("/demo-image/") || path.hasSuffix("/thumbnail") { return (200, "image/png", studioImage) }
         var status = 200
         let body: Any
         if method == "GET", path.hasSuffix("/studio") {

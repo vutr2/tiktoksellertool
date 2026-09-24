@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { verifySession } from "@/lib/session";
+import { managedProduct } from "@/lib/product-management";
 import { supabaseAdmin } from "@/lib/supabase";
 import { CUTOUT_BUCKET, ProductError, readLimitedBody } from "@/lib/products";
 import { isIndustry, findScene, publicCatalog } from "@/lib/studio";
@@ -91,10 +92,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!product) return error("That product could not be found.", 404);
   if (!product.cutout_url) return error("Capture a product photo before generating studio shots.");
 
+  const assertAvailable = async () => {
+    const latest = await managedProduct(claims.orgId, id, db);
+    if (latest.attributes.captureStatus === "deleting") throw new ProductError("This product is being deleted.", 409);
+  };
   const variationKey = `${scene.id}:${index}`;
   const assetId = studioAssetID(claims.orgId, id, variationKey);
   const cost = billingConfig.costs.imageGeneration;
   try {
+    await assertAvailable();
     const saved = await activeVariations.run(assetId, async () => {
       // Read inside the shared operation so concurrent retries on this process
       // also join saving/charging, not just the provider generation.
@@ -110,14 +116,34 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const subject = { data: Buffer.from(await cutout.arrayBuffer()), mime: "image/png" };
 
       const path = `${claims.orgId}/${id}/studio/${scene.id}-${index}.png`;
+      const checkSavedProduct = async () => {
+        try { await assertAvailable(); }
+        catch (e) {
+          // Keep retryable uploads during a database outage. Only confirmed
+          // deletion permits removing the saved image.
+          if (e instanceof ProductError && [404, 409].includes(e.status)) {
+            const cleanup = await db.storage.from(CUTOUT_BUCKET).remove([path]);
+            if (cleanup.error) throw new ProductError("Photo cleanup is incomplete. Retry deleting the product.", 503);
+          }
+          throw e;
+        }
+      };
       const saveAsset = async (image: { data: Buffer; mime: string }) => {
+        await assertAvailable();
         const up = await db.storage.from(CUTOUT_BUCKET).upload(path, image.data, { contentType: image.mime, upsert: true });
         if (up.error) throw new ImageError("Could not save the generated image. Retry this style.");
+        await checkSavedProduct();
         const { error: insertError } = await db.from("assets").upsert({
           id: assetId, product_id: id, type: "image",
           marketplace: `studio:${variationKey}`, url: path, validation_status: "pass", violations: [],
         }, { onConflict: "id" });
-        if (insertError) throw new ImageError("Could not save the generated image. Retry this style.");
+        if (insertError) {
+          // A product deleted while its provider request ran must not leave a
+          // newly uploaded orphan behind. Other storage errors remain retryable.
+          await checkSavedProduct();
+          throw new ImageError("Could not save the generated image. Retry this style.");
+        }
+        await checkSavedProduct();
       };
 
       // Content cache: identical cutout + scene + variation was already rendered
@@ -135,6 +161,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await saveAsset(result);
       // Cross-process reservations and atomic asset/debit settlement still need
       // the migration in docs/STUDIO_ASYNC_PROPOSAL.md. This cache is local only.
+      await assertAvailable();
       await chargeCredits(claims.orgId, cost, "generation.image");
       // Publish reusable content only after the original image was charged.
       await writeStudioCache(claims.orgId, contentHash, result);
@@ -146,6 +173,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { balance } = await balanceOf(claims.orgId);
     return json({ images: [{ sceneId: scene.id, index, assetId, url }], creditsCharged: saved.creditsCharged, balanceAfter: balance });
   } catch (e) {
+    if (e instanceof ProductError) return error(e.message, e.status);
     if (e instanceof InsufficientCreditsError) return json({ error: e.message, required: e.required, available: e.available }, 402);
     if (e instanceof TaskCacheFullError) return error(e.message, 503);
     if (e instanceof ImageError) {

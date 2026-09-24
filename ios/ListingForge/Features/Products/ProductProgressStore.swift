@@ -39,6 +39,16 @@ final class ProductProgressStore {
         var progress = products[key] ?? ProductProgress()
         change(&progress)
         products[key] = progress
+        persist()
+    }
+
+    func remove(_ productID: String) {
+        guard !isInvalidated else { return }
+        products.removeValue(forKey: productID.lowercased())
+        persist()
+    }
+
+    private func persist() {
         guard let file else { return }
         do {
             try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)

@@ -39,6 +39,27 @@ struct APIClient {
         try await send(path, method: "GET", body: Optional<Int>.none, token: token)
     }
 
+    func delete(_ path: String, token: String) async throws {
+        let _: EmptyResponse = try await send(path, method: "DELETE", body: Optional<Int>.none, token: token)
+    }
+
+    func patch<Body: Encodable>(_ path: String, body: Body, token: String) async throws {
+        let _: EmptyResponse = try await send(path, method: "PATCH", body: body, token: token)
+    }
+
+    func imageData(_ path: String, token: String) async throws -> Data {
+        var request = URLRequest(url: Self.url(base: baseURL, path: path))
+        request.timeoutInterval = 30
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else { throw APIError.http(status: http.statusCode, message: nil) }
+        guard http.mimeType?.hasPrefix("image/") == true, !data.isEmpty, data.count <= 5 * 1024 * 1024 else {
+            throw APIError.invalidResponse
+        }
+        return data
+    }
+
     @discardableResult
     func post<Body: Encodable, Response: Decodable>(
         _ path: String,

@@ -72,6 +72,8 @@ targets:
       path: ListingForge/Info.plist
       properties:
         CFBundleDisplayName: Listing Force
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         API_BASE_URL: $(API_BASE_URL)
         PRIVACY_POLICY_URL: $(PRIVACY_POLICY_URL)
         SUPPORT_URL: $(SUPPORT_URL)

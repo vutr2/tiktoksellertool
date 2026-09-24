@@ -75,6 +75,12 @@ final class GenerationStore {
         if let url = requestURL(productID) { try? FileManager.default.removeItem(at: url) }
     }
 
+    func removeProduct(_ productID: String) throws {
+        forget(productID)
+        try snapshots.remove(productID: productID)
+        if result?.productId == productID { result = nil }
+    }
+
     func invalidate() {
         isInvalidated = true
         quoteToken += 1
