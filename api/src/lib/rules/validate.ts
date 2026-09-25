@@ -17,6 +17,7 @@ import type {
   TitleAsset,
   Violation,
 } from "./types";
+import { ruleCopy, type RuleCopy } from "./messages.ts";
 
 /** Our tolerance for floating-point ratio comparison, not a marketplace rule. */
 const ASPECT_TOLERANCE = 0.01;
@@ -57,13 +58,14 @@ const PROMO_PHRASES = [
 const ALL_CAPS_MIN_LETTERS = 8;
 
 export function validate(asset: Asset, rules: MarketplaceRules, language: string = CONTENT_LANGUAGE): Violation[] {
+  const t = ruleCopy(language);
   switch (asset.type) {
     case "image":
-      return validateImage(asset, rules);
+      return validateImage(asset, rules, t);
     case "title":
-      return validateTitle(asset, rules, language);
+      return validateTitle(asset, rules, language, t);
     case "description":
-      return validateDescription(asset, rules);
+      return validateDescription(asset, rules, t);
     case "script":
       // No marketplace script rules are modelled yet; saying "pass" would be a
       // lie, but there is nothing to check either.
@@ -80,12 +82,12 @@ export function statusOf(violations: Violation[]): ComplianceStatus {
 
 // ── Images ───────────────────────────────────────────────────────────────────
 
-function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] {
+function validateImage(asset: ImageAsset, rules: MarketplaceRules, t: RuleCopy): Violation[] {
   const rule = rules.images?.[asset.slot];
   if (!rule) return [];
 
   const name = rules.displayName;
-  const slotLabel = asset.slot === "main" ? "main image" : "secondary image";
+  const slotLabel = t.imageSlot(asset.slot === "main" ? "main" : "secondary");
   const { facts } = asset;
   const violations: Violation[] = [];
   const field = `images.${asset.slot}`;
@@ -100,8 +102,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
         code: "image.aspect_ratio",
         severity: "fail",
         field: `${field}.aspectRatio`,
-        message: `${name} requires a ${rule.aspectRatio} ${slotLabel}.`,
-        detail: `This image is ${facts.widthPx}×${facts.heightPx}.`,
+        message: t.aspectRatio(name, rule.aspectRatio, slotLabel),
+        detail: t.imageSize(facts.widthPx, facts.heightPx),
       });
     }
   }
@@ -113,8 +115,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
       code: "image.too_small",
       severity: "fail",
       field: `${field}.minLongestEdge`,
-      message: `${name} needs the ${slotLabel} to be at least ${rule.minLongestEdge}px on its longest side.`,
-      detail: `This image is ${facts.widthPx}×${facts.heightPx}.`,
+      message: t.minLongestEdge(name, slotLabel, rule.minLongestEdge),
+      detail: t.imageSize(facts.widthPx, facts.heightPx),
     });
   }
   if (rule.maxLongestEdge !== undefined && longestEdge > rule.maxLongestEdge) {
@@ -122,8 +124,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
       code: "image.too_large",
       severity: "fail",
       field: `${field}.maxLongestEdge`,
-      message: `${name} caps the ${slotLabel} at ${rule.maxLongestEdge}px on its longest side.`,
-      detail: `This image is ${facts.widthPx}×${facts.heightPx}.`,
+      message: t.maxLongestEdge(name, slotLabel, rule.maxLongestEdge),
+      detail: t.imageSize(facts.widthPx, facts.heightPx),
     });
   }
 
@@ -136,8 +138,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
         code: "image.background.unknown",
         severity: "warn",
         field: `${field}.background`,
-        message: `We could not confirm the background is pure white, which ${name} requires on the ${slotLabel}.`,
-        detail: "The background colour has not been measured yet.",
+        message: t.backgroundUnknown(name, slotLabel),
+        detail: t.backgroundUnmeasured(),
       });
     } else if (!withinTolerance(facts.backgroundRGB, expected, tolerance)) {
       const [r, g, b] = facts.backgroundRGB;
@@ -145,8 +147,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
         code: "image.background.not_white",
         severity: "fail",
         field: `${field}.background`,
-        message: `${name} requires a pure white background on the ${slotLabel}.`,
-        detail: `This background is RGB ${r}/${g}/${b}.`,
+        message: t.backgroundNotWhite(name, slotLabel),
+        detail: t.backgroundColour(r, g, b),
       });
     }
   }
@@ -159,8 +161,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
         code: "image.fill.unknown",
         severity: "warn",
         field: `${field}.productFillRatio`,
-        message: `We could not confirm how much of the frame the product fills.`,
-        detail: `${name} expects at least ${percent(fill.min)}.`,
+        message: t.fillUnknown(),
+        detail: t.fillExpectation(name, percent(fill.min)),
       });
     } else {
       if (fill.min !== undefined && facts.productFillRatio < fill.min) {
@@ -168,8 +170,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
           code: "image.fill.too_small",
           severity: "fail",
           field: `${field}.productFillRatio`,
-          message: `${name} expects the product to fill at least ${percent(fill.min)} of the ${slotLabel}.`,
-          detail: `It currently fills ${percent(facts.productFillRatio)}.`,
+          message: t.fillTooSmall(name, percent(fill.min), slotLabel),
+          detail: t.fillActual(percent(facts.productFillRatio)),
         });
       }
       if (fill.max !== undefined && facts.productFillRatio > fill.max) {
@@ -177,8 +179,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
           code: "image.fill.too_large",
           severity: "fail",
           field: `${field}.productFillRatio`,
-          message: `${name} expects the product to fill no more than ${percent(fill.max)} of the ${slotLabel}.`,
-          detail: `It currently fills ${percent(facts.productFillRatio)}.`,
+          message: t.fillTooLarge(name, percent(fill.max), slotLabel),
+          detail: t.fillActual(percent(facts.productFillRatio)),
         });
       }
     }
@@ -194,8 +196,8 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
         code: "image.content.unknown",
         severity: "warn",
         field: `${field}.forbid`,
-        message: `This image has not been checked for things ${name} does not allow on the ${slotLabel}.`,
-        detail: `${name} forbids: ${forbid.map(contentLabel).join(", ")}.`,
+        message: t.contentUnchecked(name, slotLabel),
+        detail: t.contentForbids(name, forbid.map(t.contentLabel).join(", ")),
       });
     } else {
       for (const item of forbid) {
@@ -204,7 +206,7 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
             code: `image.content.${item}`,
             severity: "fail",
             field: `${field}.forbid`,
-            message: `${name} does not allow ${contentLabel(item)} on the ${slotLabel}.`,
+            message: t.contentNotAllowed(name, t.contentLabel(item), slotLabel),
           });
         }
       }
@@ -216,7 +218,7 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
 
 // ── Title ────────────────────────────────────────────────────────────────────
 
-function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: string = CONTENT_LANGUAGE): Violation[] {
+function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: string, t: RuleCopy): Violation[] {
   const rule = rules.title;
   if (!rule) return [];
 
@@ -229,8 +231,8 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: str
       code: "title.too_long",
       severity: "fail",
       field: "title.maxChars",
-      message: `${name} allows ${rule.maxChars} characters in a title.`,
-      detail: `This title is ${text.length} characters — ${text.length - rule.maxChars} over.`,
+      message: t.titleTooLong(name, rule.maxChars),
+      detail: t.titleLengthOver(text.length, text.length - rule.maxChars),
     });
   }
   if (rule.minChars !== undefined && text.length < rule.minChars) {
@@ -238,8 +240,8 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: str
       code: "title.too_short",
       severity: "warn",
       field: "title.minChars",
-      message: `${name} expects at least ${rule.minChars} characters in a title.`,
-      detail: `This title is ${text.length} characters.`,
+      message: t.titleTooShort(name, rule.minChars),
+      detail: t.titleLength(text.length),
     });
   }
 
@@ -249,7 +251,7 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: str
       code: "title.all_caps",
       severity: "fail",
       field: "title.forbid",
-      message: `${name} does not allow titles in all capitals.`,
+      message: t.titleAllCaps(name),
     });
   }
   if (forbid.includes("promoLanguage")) {
@@ -261,16 +263,16 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: str
         code: "title.promo_language",
         severity: "warn",
         field: "title.forbid",
-        message: `${name} does not allow promotional wording in a title.`,
-        detail: `Found: ${found.join(", ")}.`,
+        message: t.titlePromo(name),
+        detail: t.titlePromoFound(found.join(", ")),
       });
     } else if (language !== CONTENT_LANGUAGE) {
       violations.push({
         code: "title.promo_language.unchecked",
         severity: "warn",
         field: "title.forbid",
-        message: `We could not check this title for promotional wording, which ${name} does not allow.`,
-        detail: "Our wording list only covers English. Read this title yourself before you publish it.",
+        message: t.titlePromoUnchecked(name),
+        detail: t.titlePromoUncheckedDetail(),
       });
     }
   }
@@ -280,7 +282,7 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: str
 
 // ── Description ──────────────────────────────────────────────────────────────
 
-function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): Violation[] {
+function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules, t: RuleCopy): Violation[] {
   const rule = rules.description;
   if (!rule) return [];
 
@@ -294,8 +296,8 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
         code: "description.wrong_format",
         severity: "fail",
         field: "description.format",
-        message: `${name} expects the description as bullet points.`,
-        detail: "This description is a single block of text.",
+        message: t.descriptionNeedsBullets(name),
+        detail: t.descriptionIsOneBlock(),
       });
       return violations;
     }
@@ -304,8 +306,8 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
         code: "description.too_many_bullets",
         severity: "fail",
         field: "description.maxBullets",
-        message: `${name} allows ${rule.maxBullets} bullet points.`,
-        detail: `This description has ${bullets.length}.`,
+        message: t.descriptionTooManyBullets(name, rule.maxBullets),
+        detail: t.descriptionBulletCount(bullets.length),
       });
     }
     if (rule.maxCharsPerBullet !== undefined) {
@@ -315,8 +317,8 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
             code: "description.bullet_too_long",
             severity: "fail",
             field: "description.maxCharsPerBullet",
-            message: `${name} allows ${rule.maxCharsPerBullet} characters per bullet point.`,
-            detail: `Bullet ${index + 1} is ${nfc(bullet).length} characters.`,
+            message: t.descriptionBulletTooLong(name, rule.maxCharsPerBullet!),
+            detail: t.descriptionBulletLength(index + 1, nfc(bullet).length),
           });
         }
       });
@@ -330,8 +332,8 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
         code: "description.too_long",
         severity: "fail",
         field: "description.maxChars",
-        message: `${name} allows ${rule.maxChars} characters in a description.`,
-        detail: `This description is ${length} characters.`,
+        message: t.descriptionTooLong(name, rule.maxChars),
+        detail: t.descriptionLength(length),
       });
     }
   }
@@ -364,15 +366,4 @@ function isAllCaps(text: string): boolean {
 
 function percent(value: number | undefined): string {
   return value === undefined ? "—" : `${Math.round(value * 100)}%`;
-}
-
-function contentLabel(item: string): string {
-  switch (item) {
-    case "text": return "overlay text";
-    case "logo": return "logos";
-    case "watermark": return "watermarks";
-    case "border": return "borders";
-    case "human": return "people";
-    default: return item;
-  }
 }

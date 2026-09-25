@@ -174,7 +174,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return json({ images: [{ sceneId: scene.id, index, assetId, url }], creditsCharged: saved.creditsCharged, balanceAfter: balance });
   } catch (e) {
     if (e instanceof ProductError) return error(e.message, e.status);
-    if (e instanceof InsufficientCreditsError) return json({ error: e.message, required: e.required, available: e.available }, 402);
+    if (e instanceof InsufficientCreditsError) return error(e.message, 402, { required: e.required, available: e.available });
     if (e instanceof TaskCacheFullError) return error(e.message, 503);
     if (e instanceof ImageError) {
       // Task IDs and phases help reconcile interrupted paid submissions.

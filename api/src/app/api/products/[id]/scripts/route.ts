@@ -90,7 +90,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { balance } = await balanceOf(claims.orgId);
     return json({ scripts, creditsCharged: cost * scripts.length, balanceAfter: balance });
   } catch (e) {
-    if (e instanceof InsufficientCreditsError) return json({ error: e.message, required: e.required, available: e.available }, 402);
+    if (e instanceof InsufficientCreditsError) return error(e.message, 402, { required: e.required, available: e.available });
     return error("Script generation failed. Please retry this request.", 500);
   }
 }

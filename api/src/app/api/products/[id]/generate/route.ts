@@ -39,7 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (input.marketplaces.some(m => !plan.allowedMarketplaces.includes(m))) return error("Choose Pro or Scale to generate for this marketplace.", 403);
     return json(await generateListings(claims.orgId, { productId: id, requestId: body.requestId, ...input, language }));
   } catch (e) {
-    if (e instanceof InsufficientCreditsError) return json({ error: e.message, required: e.required, available: e.available }, 402);
+    if (e instanceof InsufficientCreditsError) return error(e.message, 402, { required: e.required, available: e.available });
     if (e instanceof BillingError) return error(e.message, e.status);
     if (e instanceof GenerationRequestError) return error(e.message, e.status);
     return error("Generation failed. Please retry this request.", 500);

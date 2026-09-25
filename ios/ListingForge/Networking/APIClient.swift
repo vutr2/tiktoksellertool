@@ -51,6 +51,7 @@ struct APIClient {
         var request = URLRequest(url: Self.url(base: baseURL, path: path))
         request.timeoutInterval = 30
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(AppLanguage.resolved().httpTag, forHTTPHeaderField: "Accept-Language")
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else { throw APIError.http(status: http.statusCode, message: nil) }
@@ -81,6 +82,7 @@ struct APIClient {
         request.httpMethod = "PUT"
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(AppLanguage.resolved().httpTag, forHTTPHeaderField: "Accept-Language")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = data
         let (body, response) = try await session.data(for: request)
@@ -128,6 +130,7 @@ struct APIClient {
         request.timeoutInterval = timeout
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(AppLanguage.resolved().httpTag, forHTTPHeaderField: "Accept-Language")
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

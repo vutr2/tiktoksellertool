@@ -25,9 +25,9 @@ struct AppLanguageTests {
     func followsTheDevice() {
         // Defaulting everyone to English would make the picker look broken to
         // exactly the sellers the second language exists for.
-        #expect(LanguagePreference.deviceDefault(locale: Locale(identifier: "vi_VN")) == .vi)
-        #expect(LanguagePreference.deviceDefault(locale: Locale(identifier: "en_US")) == .en)
-        #expect(LanguagePreference.deviceDefault(locale: Locale(identifier: "fr_FR")) == .en)
+        #expect(AppLanguage.deviceDefault(locale: Locale(identifier: "vi_VN")) == .vi)
+        #expect(AppLanguage.deviceDefault(locale: Locale(identifier: "en_US")) == .en)
+        #expect(AppLanguage.deviceDefault(locale: Locale(identifier: "fr_FR")) == .en)
     }
 
     @Test("A choice survives relaunch and outranks the device language")

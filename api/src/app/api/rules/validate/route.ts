@@ -3,6 +3,7 @@ import { rulesFor } from "@/lib/rules/registry";
 import { statusOf, validate } from "@/lib/rules/validate";
 import type { Asset, MarketplaceId } from "@/lib/rules/types";
 import { json, error } from "@/lib/http";
+import { languageFromHeader } from "@/lib/i18n";
 
 interface Body {
   marketplace?: MarketplaceId;
@@ -27,7 +28,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const violations = validate(body.asset, rulesFor(body.marketplace));
+    // The free check explains rules to the seller, so it answers in the
+    // language they are reading the app in.
+    const language = languageFromHeader(request.headers.get("accept-language"));
+    const violations = validate(body.asset, rulesFor(body.marketplace), language);
     // `status` is the pass/warn/fail badge the Review screen shows per asset.
     return json({ status: statusOf(violations), violations });
   } catch (e) {
