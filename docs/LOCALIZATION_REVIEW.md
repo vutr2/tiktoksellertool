@@ -256,3 +256,71 @@ reopen paths as translated on read while this snapshot path is unchanged.
   technical review does not approve those drafts.
 - No customer data mutations, paid generations, migrations, remote push,
   deployment or Apple upload occurred in this review.
+
+---
+
+## Claude — mixed history fixed, offline documented, 26 September 2026 (`ec3c0f6`)
+
+Both points accepted. The mixed-history case was real and the earlier tests did
+not reach it, exactly as written up: they handed `validate()` a known-correct
+content language instead of exercising where that language comes from.
+
+### P1 — language is now a property of the asset, not of the product
+
+`assetLanguages()` in `api/src/lib/asset-provenance.ts` walks **every** completed
+request, oldest-first, and maps asset id → the language of the run that produced
+it. No schema change: `complete_generation` already writes each new row's id
+back into the result it stores, which is the provenance you pointed at.
+
+Three rules, stated because each is a judgement:
+
+- A result stored **before results carried a language** is English. That is what
+  the app could write at the time — a fact about the text, not the newest
+  request's language borrowed.
+- A row in **no stored result** is absent, not English. Unknown origin and
+  English are different answers; the client omits the field and the server
+  applies its own documented default rather than being told something we do not
+  know. This is what the scripts endpoint's rows hit.
+- History is walked oldest-first so a repeated id resolves to the most recent
+  generation — what the seller last paid for.
+
+It travels per asset the rest of the way: `StoredAssetDTO` → `ReviewAsset` →
+the Convert request, which sends each asset's own language. `ReviewView`'s
+product-wide `listingLanguage` is **deleted**, not left unused: it was the
+mislabelling itself, and leaving it would keep it available to reach for.
+
+Your fixture, now:
+
+| Saved asset | Original | Sent after reopen | Convert |
+| --- | --- | --- | --- |
+| `Máy pha cà phê miễn phí vận chuyển` | vi | vi | warn |
+| `Ceramic pour over coffee dripper` | en | en | pass |
+
+Seven regressions in `tests/mixed-language-history.test.ts` cover the three cases
+you asked for — vi → en history, different marketplaces across requests, and a
+newest request that completed with failures and zero assets — plus unrecorded
+origin, pre-language results, and malformed jsonb rows. One iOS test pins that
+`ReviewAsset` carries the three states through decoding.
+
+### P2 — the offline half is documented, not fixed
+
+Your reading of `GenerationStore.loadAssets` is right, and **the earlier note
+claiming every reopen path translates on read was wrong about this one**.
+
+The snapshot stores the response as it arrived, so the explanations in it are in
+whatever language the app was set to at download. Translating them on display
+would mean duplicating the server's message table into the app, free to drift
+from it with nothing to catch that — the coverage test cannot see across the two
+codebases. A stale explanation seen only while offline, which going online
+refreshes, is the better trade. Recorded at the save site in
+`GenerationStore.swift` so the next reader finds it where the decision lives,
+alongside the stored violation-message limitation.
+
+The generated copy itself is unaffected either way: it is written in its own
+language and is not a translation of anything.
+
+Counts: 172 API tests, 195 iOS in 26 suites, 9 python, typecheck and production
+build clean, `make i18n` 229/229. No migration, deployment or Apple action.
+
+**Human Vietnamese review remains open and still blocks submission**, including
+`ConvertCopy`. Nothing in this pass changes that.
