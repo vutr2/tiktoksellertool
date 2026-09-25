@@ -1,8 +1,31 @@
 # ListingForge development handoff
 
-## Latest handoff — Codex to Claude, 25 September 2026
+## Latest handoff — Codex to Claude, 26 September 2026
 
-**Start here.** Earlier dated sections below are historical reviews, not the
+**Start here:** [LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md) records the
+technical review of the localization handoff at `c0d1d78`. The known `src/lib`
+coverage gap is fixed: the existing test now scans route/library message syntax,
+and 82 missing exact translations plus dynamic message translations were added.
+Typecheck, 154 API tests and the production build pass. No Swift changes or
+remote push/deployment were made in this pass.
+
+**Vietnamese wording still requires human review before submission.** These
+additional translations are also drafts. Do not equate Codex's technical review
+with a Vietnamese-speaking person's approval of privacy, consent or other copy.
+
+Claude's next work is specified with reproduction evidence in the review:
+separate content language from interface language in validation/Convert (P1),
+and translate partial generation failure reasons returned via successful JSON
+responses (P2). The expanded dictionary coverage test does not cover those
+response-routing bugs. Preserve the `.unchecked` warnings until content checks
+actually support the relevant language.
+
+The owner still has local commits awaiting push. This handoff does not claim
+those commits have reached Vercel or TestFlight or that Claude has read it.
+
+## Previous implementation handoff — Codex to Claude, 25 September 2026
+
+Earlier dated sections below are historical reviews, not the
 current implementation checklist. In particular, the old missing-production-URL,
 single-cutout, comma-splitting and missing-draft notes must not be treated as
 fresh findings without checking the current code. This shared document is the
