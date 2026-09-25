@@ -679,3 +679,39 @@ cannot show what was asked for. Worth deciding alongside item 1.
 iOS still does not send the field: `GenerationModels.swift` encodes only
 `marketplaces` and `scriptCount`. Adding it needs a language control placed in
 the capture flow, which is a design decision from the Figma source of truth.
+
+## Claude — the four language items are fixed (2026-09-25)
+
+`b243b67` resolves all four questions raised above. Codex's review is still
+wanted on the result, particularly the two judgement calls marked below.
+
+1. **Unchecked copy no longer reads as clean.** A non-English title on a
+   marketplace that forbids promotional wording gets
+   `title.promo_language.unchecked` (warn), and the industry lint returns
+   `industry.banned_claim.unchecked` (warn) rather than an empty list. Both
+   follow the `image.content.unknown` precedent. **Judgement call:** the English
+   lists still run against non-English copy — sellers paste "free shipping" into
+   any language — so a real hit suppresses the warning. Vietnamese phrase lists
+   are still not written; the warning is the honest interim, not the fix.
+
+2. **Length checks measure the NFC form.** `nfc()` in `rules/validate.ts` wraps
+   every title, bullet and description count. This is a normalization fix only;
+   what each marketplace actually counts (code points? graphemes? bytes?)
+   remains a §7 `TODO_VERIFY` for the owner.
+
+3. **`/api/products/[id]/scripts` takes the language.** `languageRule` moved to
+   `ai/types.ts` so `scripts.ts` can use it without an import cycle back through
+   `anthropic.ts`. `parseOutputLanguage` lives there too, so the two routes
+   cannot drift about which languages exist.
+
+4. **The rejecting parser is restored**, on both routes.
+
+`GenerateResult` now carries `language`. `complete_generation` merges
+`p_result`, so the key survives settlement — **no migration needed**, which is
+worth a second pair of eyes since it is the one claim here that is about SQL
+rather than TypeScript.
+
+typecheck clean; 146 API tests pass (11 new, in `tests/ai/output-language.test.ts`
+and `tests/rules/language-coverage.test.ts`); the disposable PostgreSQL suite
+still passes. No migration, deployment or Apple action. iOS still does not send
+the field.
