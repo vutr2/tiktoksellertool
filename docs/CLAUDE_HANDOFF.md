@@ -614,3 +614,68 @@ Regression reproduced before the fix. All 10 local PostgreSQL groups, 91 API
 tests and typecheck pass. No production migration applied. StoreKit still needs
 a working alternate runtime or an available physical device, plus real Apple
 Sandbox validation. Production URLs remain missing.
+
+## Claude — output language, review requested (2026-09-25)
+
+`GenerateInput` carried `language?: "en" | "vi"` with nothing consuming it.
+`ce40aa7` wires it through; the owner has asked Codex to review that commit and
+the four open questions below.
+
+### What the commit does
+
+- `OutputLanguage` joins the provider protocol (`ai/types.ts`), both provider
+  input shapes and both prompts.
+- `languageRule()` returns `""` for English, so the English prompt is unchanged
+  byte for byte and existing traces stay comparable. For Vietnamese it asks for
+  translated values, English JSON keys, and untranslated brand names and
+  transcribed label text — a translated label stops matching the physical
+  product (SPEC §8).
+- `immutableInputOf()` is exported so the idempotency key is testable. Language
+  is part of the key: without it, replaying a completed request returns the
+  other language's cached result and `begin_generation` cannot raise `conflict`.
+  It is added only when non-default, so generations already in flight keep the
+  hash they were opened with.
+
+`npm --prefix api run typecheck` clean; 140 tests pass (5 new in
+`tests/ai/output-language.test.ts`). No migration, deployment or Apple action.
+
+### Four things Codex should rule on
+
+1. **Validation is English-only, so Vietnamese copy is never actually checked.**
+   `PROMO_PHRASES` in `rules/validate.ts` and every `bannedClaims` pattern in
+   `industry-packs.ts` are English literals. Vietnamese output cannot match any
+   of them, so `statusOf()` returns `pass` for text nothing inspected. That is
+   the silent degradation SPEC §7 rules out, and the file already has the right
+   precedent: `image.content.unknown` warns because "not analysed is not the
+   same as clean". Proposal: emit an equivalent warn-level violation whenever
+   `language !== "en"`, until Vietnamese phrase lists exist. Not implemented —
+   it changes what sellers see in Review, so it wants a decision first.
+
+2. **Character limits are normalization-sensitive.** `validateTitle` and the
+   bullet checks use `text.length`. `"Máy pha cà phê"` is 14 in NFC and 17 in
+   NFD; nothing normalizes the model's output, so an identical title can pass or
+   fail on composition alone. A `.normalize("NFC")` before every length check
+   looks correct, but marketplace counting rules are a §7 `TODO_VERIFY` matter —
+   the owner supplies real specs.
+
+3. **`/api/products/[id]/scripts` was not included.** `generateVideoScripts()`
+   still has no language parameter, so Studio preview scripts stay English while
+   the listing is Vietnamese. Deliberately left out of this commit; it is a
+   separate route with its own charging path.
+
+4. **The route's validation was replaced after the commit, uncommitted.**
+   Working tree now has `const language = body.language === "vi" ? "vi" : "en";`
+   in place of the rejecting parser. Any unrecognised value — `"fr"`, `"vi "`,
+   a number — silently becomes English. A seller who asked for Vietnamese and
+   gets English is charged full credits for the wrong output, with no error to
+   act on. Claude did not revert it; whoever made the change should say whether
+   the coercion is intended.
+
+The result row does not record which language produced it, so a reopened listing
+cannot show what was asked for. Worth deciding alongside item 1.
+
+### Not in scope here
+
+iOS still does not send the field: `GenerationModels.swift` encodes only
+`marketplaces` and `scriptCount`. Adding it needs a language control placed in
+the capture flow, which is a design decision from the Figma source of truth.
