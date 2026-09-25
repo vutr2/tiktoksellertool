@@ -1,0 +1,11 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Marketplace-ready listings from one photo." : {
+      "localizations" : {
+        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Listing chuẩn sàn chỉ từ một tấm ảnh." } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

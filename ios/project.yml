@@ -1,4 +1,6 @@
 name: ListingForge
+# Declared so the String Catalog emits a vi.lproj into the built bundle.
+knownRegions: [en, vi, Base]
 options:
   bundleIdPrefix: com.ctt
   deploymentTarget:

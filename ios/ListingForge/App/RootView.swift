@@ -12,6 +12,13 @@ struct RootView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
     var body: some View {
+        content
+            // The seller's pick, not the phone's setting: SwiftUI resolves every
+            // localized string against the locale it finds in the environment.
+            .environment(\.locale, Locale(identifier: appEnvironment.language.language.rawValue))
+    }
+
+    @ViewBuilder private var content: some View {
         switch appEnvironment.auth.state {
         case .loading:
             ProgressView()
