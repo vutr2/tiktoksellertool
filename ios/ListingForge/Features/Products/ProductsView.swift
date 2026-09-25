@@ -111,7 +111,6 @@ struct ProductsView: View {
                 ReviewView(productName: opened.listing.product.name,
                            assets: opened.listing.assets.map(ReviewAsset.init),
                            productID: opened.listing.product.id,
-                           listingLanguage: opened.listing.outputLanguage,
                            failures: opened.listing.failures, notice: opened.notice)
             }
             .sheet(isPresented: $showingDraft, onDismiss: {

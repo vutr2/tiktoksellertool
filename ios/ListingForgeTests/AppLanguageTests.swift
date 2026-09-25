@@ -135,6 +135,34 @@ struct AppLanguageTests {
         #expect(roundTripped.outputLanguage == .vi)
     }
 
+    @Test("Each asset keeps the language of the generation that produced it")
+    func assetsKeepTheirOwnLanguage() throws {
+        // A product accumulates assets across generations. Labelling them all
+        // with the newest run's language told the server that older Vietnamese
+        // copy was English, and its content checks then reported copy they had
+        // never read as clean.
+        let mixed = """
+        {"product":{"id":"p1","name":"A","category":"B"},
+         "failures":[],
+         "assets":[
+           {"id":"a1","type":"title","marketplace":"tiktok_shop","content":"Máy pha cà phê",
+            "status":"warn","violations":[],"language":"vi"},
+           {"id":"a2","type":"title","marketplace":"etsy","content":"Ceramic dripper",
+            "status":"pass","violations":[],"language":"en"},
+           {"id":"a3","type":"title","marketplace":"amazon","content":"Older copy",
+            "status":"pass","violations":[]}
+         ]}
+        """
+        let listing = try JSONDecoder().decode(ListingAssetsDTO.self, from: Data(mixed.utf8))
+        let review = listing.assets.map(ReviewAsset.init)
+
+        #expect(review[0].language == .vi)
+        #expect(review[1].language == .en)
+        // Unrecorded origin stays unknown rather than becoming English here;
+        // the server applies its own documented default.
+        #expect(review[2].language == nil)
+    }
+
     private static let generated = """
     {"productId":"p1","language":"vi",
      "facts":{"suggestedName":"A","suggestedCategory":"B","material":null,"colour":null,

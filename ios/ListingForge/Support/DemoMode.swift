@@ -87,7 +87,7 @@ private struct DemoWorkflowScreen: View {
                        industry: .home, stepLabel: "3 of 4", onContinue: {})
         case .convert:
             ConvertView(source: "tiktok_shop", assets: DemoData.listing.assets.map(ReviewAsset.init),
-                        language: .en, onContinue: { _ in })
+                        onContinue: { _ in })
         default:
             EmptyView()
         }

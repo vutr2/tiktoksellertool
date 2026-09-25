@@ -9,10 +9,6 @@ struct ConvertView: View {
 
     let source: String
     let assets: [ReviewAsset]
-    /// The language the saved copy is written in. Sent so the server knows
-    /// whether its English content checks could read this text — reading the
-    /// app in English must not make Vietnamese copy report as fully checked.
-    let language: AppLanguage
     let onContinue: (String) -> Void
 
     @State private var target = ""
@@ -225,8 +221,13 @@ struct ConvertView: View {
             var completed: [CheckedCopy] = []
             for asset in copy {
                 try Task.checkCancellation()
+                // Each asset's own language, not one label for the product: a
+                // product accumulates copy from several generations, and
+                // sending the newest run's language would tell the server that
+                // older Vietnamese copy is English — which makes its content
+                // checks report clean without having read anything.
                 let body = ConversionCheckRequest(asset: TextToCheck(asset), from: source,
-                                                  to: requestedTarget, language: language)
+                                                  to: requestedTarget, language: asset.language)
                 let result: ConversionCheckResult = try await environment.api.post(
                     "api/rules/convert", body: body, token: token)
                 guard !Task.isCancelled, target == requestedTarget, environment.auth.token == token else { return }
@@ -257,7 +258,9 @@ private struct ConversionCheckRequest: Encodable {
     let asset: TextToCheck
     let from: String
     let to: String
-    let language: AppLanguage
+    /// Omitted when the asset's origin is unrecorded, so the server applies its
+    /// own documented default rather than being told a language we do not know.
+    let language: AppLanguage?
 }
 
 private struct TextToCheck: Encodable {

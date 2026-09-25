@@ -112,9 +112,8 @@ struct CaptureView: View {
         .sheet(item: $generatedListing) { listing in
             ReviewView(
                 productName: listing.facts.suggestedName,
-                assets: listing.assets.map(ReviewAsset.init),
+                assets: listing.assets.map { ReviewAsset($0, language: listing.outputLanguage) },
                 productID: listing.productId,
-                listingLanguage: listing.outputLanguage,
                 failures: listing.failures
             )
         }

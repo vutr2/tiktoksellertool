@@ -113,8 +113,36 @@ struct StoredAssetDTO: Codable, Hashable, Identifiable {
     let content: String
     let status: String
     let violations: [ViolationDTO]
+    /// What this one asset is written in. A product accumulates assets across
+    /// generations, so the newest run's language is not a fact about the older
+    /// copy beside it. Absent means the server could not trace this row to a
+    /// stored result — unknown, which is not the same as English.
+    let language: AppLanguage?
 
     var compliance: ComplianceStatus { ComplianceStatus(rawValue: status) ?? .warn }
+
+    init(id: String, type: String, marketplace: String, content: String,
+         status: String, violations: [ViolationDTO], language: AppLanguage? = nil) {
+        self.id = id
+        self.type = type
+        self.marketplace = marketplace
+        self.content = content
+        self.status = status
+        self.violations = violations
+        self.language = language
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        type = try values.decode(String.self, forKey: .type)
+        marketplace = try values.decode(String.self, forKey: .marketplace)
+        content = try values.decode(String.self, forKey: .content)
+        status = try values.decode(String.self, forKey: .status)
+        violations = try values.decodeIfPresent([ViolationDTO].self, forKey: .violations) ?? []
+        // Snapshots cached before per-asset provenance existed carry no value.
+        language = try values.decodeIfPresent(AppLanguage.self, forKey: .language)
+    }
 }
 
 struct ListingProductDTO: Codable, Hashable {
@@ -156,9 +184,12 @@ struct ListingAssetsDTO: Codable {
             product: ListingProductDTO(id: result.productId, name: productName,
                                        category: result.facts.suggestedCategory),
             assets: result.assets.enumerated().map { index, asset in
+                // Everything in one result was written in that result's
+                // language, so provenance is known here without asking anyone.
                 StoredAssetDTO(id: asset.serverID ?? "\(asset.id)-\(index)", type: asset.type,
                                marketplace: asset.marketplace, content: asset.content,
-                               status: asset.status.rawValue, violations: asset.violations)
+                               status: asset.status.rawValue, violations: asset.violations,
+                               language: result.outputLanguage)
             },
             failures: result.failures,
             language: result.outputLanguage

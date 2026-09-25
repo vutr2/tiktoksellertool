@@ -257,6 +257,16 @@ final class GenerationStore {
             let listing: ListingAssetsDTO = try await api.get(
                 "api/products/\(productID)/assets", token: token)
             guard !isInvalidated, !Task.isCancelled else { return nil }
+            // The snapshot stores the response as it arrived, which means the
+            // failure explanations in it are already written in whatever
+            // language the app was set to when it was downloaded. Reopening
+            // offline after switching language therefore still shows the old
+            // one. Translating them on display would need the server's message
+            // table duplicated in the app, free to drift from it with nothing
+            // to catch that — a worse trade than a stale explanation the seller
+            // sees only while offline. Going online refreshes it. The generated
+            // copy itself is unaffected: it is written in its own language and
+            // is not a translation of anything.
             do { try snapshots.save(listing) }
             catch { listingLoadWarning = "This listing is available online, but its offline copy could not be saved." }
             return listing

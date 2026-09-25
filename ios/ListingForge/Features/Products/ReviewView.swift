@@ -20,6 +20,10 @@ struct ReviewAsset: Identifiable, Hashable {
     let content: String
     let status: ComplianceStatus
     let violations: [ViolationDTO]
+    /// What this asset is written in, or nil when its origin is unrecorded.
+    /// Carried per asset because a product can hold copy from several
+    /// generations in different languages.
+    let language: AppLanguage?
 
     var displayedStatus: ComplianceStatus {
         if status == .fail || violations.contains(where: \.isFailure) { return .fail }
@@ -34,15 +38,17 @@ struct ReviewAsset: Identifiable, Hashable {
         content = stored.content
         status = stored.compliance
         violations = stored.violations
+        language = stored.language
     }
 
-    init(_ generated: GeneratedAssetDTO) {
+    init(_ generated: GeneratedAssetDTO, language: AppLanguage? = nil) {
         id = generated.id
         type = generated.type
         marketplace = generated.marketplace
         content = generated.content
         status = generated.status
         violations = generated.violations
+        self.language = language
     }
 }
 
@@ -53,10 +59,6 @@ struct ReviewView: View {
     let productName: String
     let assets: [ReviewAsset]
     var productID: String? = nil
-    /// What this listing is written in, which is not the same thing as what the
-    /// reader's interface is set to. The server needs it to know whether its
-    /// English content checks could actually read this copy.
-    var listingLanguage: AppLanguage = .en
     /// Marketplaces that produced nothing, so a silent gap is never mistaken
     /// for a clean result.
     var failures: [GenerationFailureDTO] = []
@@ -74,7 +76,8 @@ struct ReviewView: View {
     private var listingAssets: [ReviewAsset] {
         // Studio images have their own gallery. They are not text assets or
         // marketplaces, and must not render as empty "Pass" cards here.
-        (resumedListing?.assets.map(ReviewAsset.init) ?? assets).filter { $0.type != "image" }
+        (resumedListing.map { listing in listing.assets.map { ReviewAsset($0, language: listing.outputLanguage) } }
+            ?? assets).filter { $0.type != "image" }
     }
     private var listingFailures: [GenerationFailureDTO] { resumedListing?.failures ?? failures }
 
@@ -182,8 +185,7 @@ struct ReviewView: View {
             }
         }) {
             if let current {
-                ConvertView(source: current, assets: shown,
-                            language: resumedListing?.outputLanguage ?? listingLanguage) { conversionTarget = $0 }
+                ConvertView(source: current, assets: shown) { conversionTarget = $0 }
             }
         }
     }
