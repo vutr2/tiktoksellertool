@@ -13,6 +13,7 @@ import {
   type AdScript,
   type ListingCopy,
   type ListingCopyProvider,
+  languageRule,
   type ModelResult,
   type OutputLanguage,
   type ProductFacts,
@@ -34,21 +35,6 @@ Do not generate sexual content involving minors, threats, hateful abuse, or inst
 for wrongdoing. Do not promote illegal products. Do not invent certifications, health
 benefits, brand affiliation, material, or measurements. If the request is unsafe, refuse
 it rather than producing a listing. Follow the requested JSON format for safe requests.`;
-
-const LANGUAGE_NAMES: Record<OutputLanguage, string> = { en: "English", vi: "Vietnamese" };
-
-/**
- * Asks for a non-English answer. Empty for English so the English prompt — the
- * one every existing trace was produced under — is byte-for-byte unchanged.
- *
- * Product text is exempted explicitly: the model is told to leave brand names
- * and transcribed label text alone, because a translated label no longer
- * matches the physical product.
- */
-export function languageRule(language: OutputLanguage | undefined): string {
-  if (!language || language === "en") return "";
-  return `\nWrite every value in ${LANGUAGE_NAMES[language]}. Keep the JSON keys in English. Leave brand names and any text transcribed from the product exactly as they appear — do not translate them.\n`;
-}
 
 const VISION_PROMPT = `You are helping a marketplace seller describe a product from its photo.
 
@@ -169,6 +155,7 @@ export async function generateVideoScripts(input: {
   keyFeatures: string[];
   count: number;
   voice?: string;
+  language?: OutputLanguage;
   makeId: (index: number) => string;
 }): Promise<VideoScript[]> {
   const model = env.scriptModel();

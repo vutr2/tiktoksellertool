@@ -4,21 +4,13 @@ import { generateListings, GenerationRequestError, quoteCredits } from "@/lib/ge
 import { InsufficientCreditsError } from "@/lib/credits";
 import { MARKETPLACE_IDS } from "@/lib/rules/registry";
 import type { MarketplaceId } from "@/lib/rules/types";
-import type { OutputLanguage } from "@/lib/ai/types";
+import { parseOutputLanguage } from "@/lib/ai/types";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ProductError, readLimitedBody } from "@/lib/products";
 import { json, error } from "@/lib/http";
 
 export const maxDuration = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LANGUAGES: readonly string[] = ["en", "vi"];
-/** Absent means English. An unrecognised value is rejected, never coerced —
- *  silently writing English for a seller who asked for Vietnamese is worse
- *  than telling them the language is not supported. */
-function outputLanguage(raw: unknown): OutputLanguage | null {
-  if (raw === undefined || raw === null) return "en";
-  return typeof raw === "string" && LANGUAGES.includes(raw) ? (raw as OutputLanguage) : null;
-}
 function selection(raw: unknown, scripts: unknown): { marketplaces: MarketplaceId[]; scriptCount: number } | null {
   if (!Array.isArray(raw) || raw.length > 4 || raw.some(m => !MARKETPLACE_IDS.includes(m))) return null;
   const marketplaces = [...new Set(raw)] as MarketplaceId[];
@@ -40,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const input = selection(body.marketplaces, body.scriptCount ?? 0);
   if (!input || !input.marketplaces.length) return error("Choose up to four marketplaces and 0–10 scripts.");
-  const language = outputLanguage(body.language);
+  const language = parseOutputLanguage(body.language);
   if (!language) return error("That language is not supported yet.");
   try {
     const plan = await billingStatus(claims.orgId, claims.userId);

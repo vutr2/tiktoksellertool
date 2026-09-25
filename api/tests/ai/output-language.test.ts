@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { languageRule } from "../../src/lib/ai/anthropic.ts";
+import { languageRule, parseOutputLanguage } from "../../src/lib/ai/types.ts";
 import { immutableInputOf, quoteCredits } from "../../src/lib/generate.ts";
 
 test("English adds nothing to the prompt", () => {
@@ -39,4 +39,15 @@ test("Vietnamese is a different piece of work from English", () => {
 test("language does not change the price", () => {
   const base = { productId: "p", marketplaces: ["amazon" as const, "tiktok_shop" as const], scriptCount: 3 };
   assert.equal(quoteCredits({ ...base, language: "vi" }), quoteCredits(base));
+});
+
+test("an unrecognised language is rejected, not quietly turned into English", () => {
+  // Coercing would charge full credits for copy in the wrong language with no
+  // error the seller could act on.
+  assert.equal(parseOutputLanguage(undefined), "en");
+  assert.equal(parseOutputLanguage(null), "en");
+  assert.equal(parseOutputLanguage("vi"), "vi");
+  for (const bad of ["fr", "vi ", "VI", "", 1, true, {}, ["vi"]]) {
+    assert.equal(parseOutputLanguage(bad), null, `expected ${JSON.stringify(bad)} to be rejected`);
+  }
 });

@@ -3,6 +3,7 @@ import { verifySession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ProductError, readLimitedBody } from "@/lib/products";
 import { generateVideoScripts } from "@/lib/ai/anthropic";
+import { parseOutputLanguage } from "@/lib/ai/types";
 import { type VideoScript } from "@/lib/scripts";
 import { billingConfig } from "@/lib/billing-config";
 import { assertCanAfford, chargeCredits, balanceOf, InsufficientCreditsError } from "@/lib/credits";
@@ -56,6 +57,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try { body = JSON.parse((await readLimitedBody(request, 2048)).toString("utf8")); }
   catch (e) { return error(e instanceof ProductError ? e.message : "Invalid request body."); }
   const count = Number.isInteger(body?.count) && body.count >= 1 && body.count <= 5 ? body.count : 5;
+  const language = parseOutputLanguage(body?.language);
+  if (!language) return error("That language is not supported yet.");
 
   const db = supabaseAdmin();
   const product = await ownedProduct(claims.orgId, id);
@@ -69,6 +72,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       category: product.category ?? "",
       keyFeatures: keyFeaturesOf(product),
       count,
+      language,
       makeId: () => randomUUID(),
     });
     if (scripts.length === 0) return error("No usable scripts were produced. Please retry.", 502);

@@ -4,6 +4,8 @@
 // The model miscounts time, so durations are audited here — never trusted as
 // returned. Pure functions only (no SDK), so they stay unit-testable.
 
+import { languageRule, type OutputLanguage } from "./ai/types.ts";
+
 /** Strips a code fence the model may have added despite being asked not to. */
 function stripFence(text: string): string {
   const fenced = text.match(/^\s*```(?:json)?\s*\n([\s\S]*?)\n?\s*```\s*$/);
@@ -34,6 +36,7 @@ export function scriptsPrompt(input: {
   keyFeatures: string[];
   count: number;
   voice?: string;
+  language?: OutputLanguage;
 }): string {
   const { name, category, keyFeatures, count, voice } = input;
   return `Write ${count} short-form vertical video ad scripts for this product.
@@ -53,7 +56,7 @@ Every beat has:
 - "onScreenText": the short caption shown on screen for that beat.
 
 Claim nothing that is not in the product details above. Keep captions punchy.
-
+${languageRule(input.language)}
 Reply with JSON only, no prose and no code fences:
 [
   {

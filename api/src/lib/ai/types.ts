@@ -79,6 +79,35 @@ export interface VisionProvider {
  */
 export type OutputLanguage = "en" | "vi";
 
+const OUTPUT_LANGUAGES: readonly string[] = ["en", "vi"];
+
+/**
+ * Reads the language off a request body. Absent means English; an unrecognised
+ * value returns null so the caller can reject it.
+ *
+ * Coercing an unknown value to English would charge a seller full credits for
+ * a listing in a language they did not ask for, with no error to act on.
+ */
+export function parseOutputLanguage(raw: unknown): OutputLanguage | null {
+  if (raw === undefined || raw === null) return "en";
+  return typeof raw === "string" && OUTPUT_LANGUAGES.includes(raw) ? (raw as OutputLanguage) : null;
+}
+
+const LANGUAGE_NAMES: Record<OutputLanguage, string> = { en: "English", vi: "Vietnamese" };
+
+/**
+ * Asks for a non-English answer. Empty for English so the English prompt — the
+ * one every existing trace was produced under — is byte-for-byte unchanged.
+ *
+ * Product text is exempted explicitly: the model is told to leave brand names
+ * and transcribed label text alone, because a translated label no longer
+ * matches the physical product.
+ */
+export function languageRule(language: OutputLanguage | undefined): string {
+  if (!language || language === "en") return "";
+  return `\nWrite every value in ${LANGUAGE_NAMES[language]}. Keep the JSON keys in English. Leave brand names and any text transcribed from the product exactly as they appear — do not translate them.\n`;
+}
+
 export interface AdScript {
   /** The first three seconds. TikTok lives or dies here (SPEC §2). */
   hook: string;

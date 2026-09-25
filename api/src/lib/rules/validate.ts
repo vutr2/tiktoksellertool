@@ -22,6 +22,28 @@ import type {
 const ASPECT_TOLERANCE = 0.01;
 
 /**
+ * The language every word list below is written in.
+ *
+ * The engine's keyword checks are English literals. Copy in another language
+ * cannot match them, so it would come back clean without having been read —
+ * the silent degradation SPEC §7 rules out. Callers pass the language of the
+ * text so the engine can say so out loud instead.
+ */
+const CONTENT_LANGUAGE = "en";
+
+/**
+ * Character counts are taken on the composed form.
+ *
+ * "Máy pha cà phê" is 14 characters composed and 17 decomposed, and nothing
+ * guarantees which form a model or a keyboard produces. Counting the raw
+ * string would fail a title over how its accents happen to be encoded rather
+ * than over its length.
+ */
+function nfc(text: string): string {
+  return text.normalize("NFC");
+}
+
+/**
  * Wording that reads as promotion rather than description. A heuristic, not a
  * published list — flagged for review at the end of the milestone.
  */
@@ -34,12 +56,12 @@ const PROMO_PHRASES = [
 /** A title is shouting only when it has real length and no lowercase at all. */
 const ALL_CAPS_MIN_LETTERS = 8;
 
-export function validate(asset: Asset, rules: MarketplaceRules): Violation[] {
+export function validate(asset: Asset, rules: MarketplaceRules, language: string = CONTENT_LANGUAGE): Violation[] {
   switch (asset.type) {
     case "image":
       return validateImage(asset, rules);
     case "title":
-      return validateTitle(asset, rules);
+      return validateTitle(asset, rules, language);
     case "description":
       return validateDescription(asset, rules);
     case "script":
@@ -194,12 +216,12 @@ function validateImage(asset: ImageAsset, rules: MarketplaceRules): Violation[] 
 
 // ── Title ────────────────────────────────────────────────────────────────────
 
-function validateTitle(asset: TitleAsset, rules: MarketplaceRules): Violation[] {
+function validateTitle(asset: TitleAsset, rules: MarketplaceRules, language: string = CONTENT_LANGUAGE): Violation[] {
   const rule = rules.title;
   if (!rule) return [];
 
   const name = rules.displayName;
-  const text = asset.text;
+  const text = nfc(asset.text);
   const violations: Violation[] = [];
 
   if (rule.maxChars !== undefined && text.length > rule.maxChars) {
@@ -231,6 +253,8 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules): Violation[] 
     });
   }
   if (forbid.includes("promoLanguage")) {
+    // The list is still run: English promotional wording turns up in
+    // non-English copy often enough to be worth catching.
     const found = PROMO_PHRASES.filter((phrase) => text.toLowerCase().includes(phrase));
     if (found.length > 0) {
       violations.push({
@@ -239,6 +263,14 @@ function validateTitle(asset: TitleAsset, rules: MarketplaceRules): Violation[] 
         field: "title.forbid",
         message: `${name} does not allow promotional wording in a title.`,
         detail: `Found: ${found.join(", ")}.`,
+      });
+    } else if (language !== CONTENT_LANGUAGE) {
+      violations.push({
+        code: "title.promo_language.unchecked",
+        severity: "warn",
+        field: "title.forbid",
+        message: `We could not check this title for promotional wording, which ${name} does not allow.`,
+        detail: "Our wording list only covers English. Read this title yourself before you publish it.",
       });
     }
   }
@@ -278,13 +310,13 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
     }
     if (rule.maxCharsPerBullet !== undefined) {
       bullets.forEach((bullet, index) => {
-        if (bullet.length > rule.maxCharsPerBullet!) {
+        if (nfc(bullet).length > rule.maxCharsPerBullet!) {
           violations.push({
             code: "description.bullet_too_long",
             severity: "fail",
             field: "description.maxCharsPerBullet",
             message: `${name} allows ${rule.maxCharsPerBullet} characters per bullet point.`,
-            detail: `Bullet ${index + 1} is ${bullet.length} characters.`,
+            detail: `Bullet ${index + 1} is ${nfc(bullet).length} characters.`,
           });
         }
       });
@@ -292,7 +324,7 @@ function validateDescription(asset: DescriptionAsset, rules: MarketplaceRules): 
   }
 
   if (rule.maxChars !== undefined) {
-    const length = asset.text?.length ?? (asset.bullets ?? []).join("\n").length;
+    const length = nfc(asset.text ?? (asset.bullets ?? []).join("\n")).length;
     if (length > rule.maxChars) {
       violations.push({
         code: "description.too_long",

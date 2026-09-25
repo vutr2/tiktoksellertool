@@ -46,6 +46,8 @@ export interface GeneratedAsset {
 
 export interface GenerateResult {
   productId: string;
+  /** What was asked for, so a reopened listing can say which language it is in. */
+  language: OutputLanguage;
   facts: ProductFacts;
   assets: GeneratedAsset[];
   /** Marketplaces that failed, with the reason. Partial success is normal. */
@@ -121,6 +123,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
   let creditsCharged = 0;
 
   // Optional per-industry pack. Absent (older products) → unchanged behaviour.
+  const language: OutputLanguage = input.language ?? "en";
   const industry: Industry | null = isIndustry(product.attributes?.industry) ? product.attributes.industry : null;
   const pack = industry ? INDUSTRY_PACKS[industry] : null;
   const avoid = pack ? pack.bannedClaims.map((c) => `${c.why} Instead: ${c.fix}`) : undefined;
@@ -143,7 +146,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         voice: pack?.voice,
         hashtagGuidance: pack?.hashtagGuidance,
         avoid,
-        language: input.language,
+        language,
       });
       const usage = { ...copy.usage, creditsCharged: 0 };
       usages.push(usage);
@@ -152,8 +155,8 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
       // own text — the model is not trusted to have followed the limits. The
       // industry banned-claim lint adds warnings on top.
       const titleViolations = [
-        ...validate({ type: "title", text: copy.value.title }, rules),
-        ...industryLint(copy.value.title, industry, "title"),
+        ...validate({ type: "title", text: copy.value.title }, rules, language),
+        ...industryLint(copy.value.title, industry, "title", language),
       ];
       assets.push({
         type: "title",
@@ -171,8 +174,8 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           ? { type: "description" as const, bullets: copy.value.bullets }
           : { type: "description" as const, text: copy.value.description ?? "" };
       const descriptionViolations = [
-        ...validate(descriptionAsset, rules),
-        ...industryLint(descriptionText, industry, "description"),
+        ...validate(descriptionAsset, rules, language),
+        ...industryLint(descriptionText, industry, "description", language),
       ];
       assets.push({
         type: "description",
@@ -209,7 +212,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
         facts,
         marketplace: rulesFor(input.marketplaces[0]).displayName,
         count: input.scriptCount,
-        language: input.language,
+        language,
       });
       const usage = { ...scripts.usage, creditsCharged: 0 };
       usages.push(usage);
@@ -235,7 +238,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
     }
   }
 
-  const response = { productId: product.id as string, facts, assets, failures, creditsCharged, balanceAfter: 0 };
+  const response = { productId: product.id as string, language, facts, assets, failures, creditsCharged, balanceAfter: 0 };
   const { data: settled, error: settlementError } = await db.rpc("complete_generation", {
     p_request_id: input.requestId, p_lease_token: leaseToken, p_assets: assets,
     p_usages: usages, p_result: response, p_credits_to_charge: creditsCharged,
@@ -255,10 +258,31 @@ export class GenerationRequestError extends Error {
   constructor(message: string, status: number) { super(message); this.status = status; }
 }
 
-/** Industry banned-claim hits as warn-level violations shown in Review. */
-function industryLint(text: string, industry: Industry | null, field: string): Violation[] {
+/**
+ * Industry banned-claim hits as warn-level violations shown in Review.
+ *
+ * The packs' patterns are English. Against other languages they match nothing,
+ * so a clean result would mean "not read" rather than "no risky claims" — say
+ * which one it is instead of implying the safer one.
+ */
+function industryLint(
+  text: string,
+  industry: Industry | null,
+  field: string,
+  language: OutputLanguage = "en",
+): Violation[] {
   if (!industry) return [];
-  return lintClaims(text, industry).map((hit) => ({
+  const hits = lintClaims(text, industry);
+  if (hits.length === 0 && language !== "en") {
+    return [{
+      code: "industry.banned_claim.unchecked",
+      severity: "warn" as const,
+      field,
+      message: "We could not check this text for risky claims about your industry.",
+      detail: "Our list of risky claims only covers English. Read it yourself before you publish it.",
+    }];
+  }
+  return hits.map((hit) => ({
     code: "industry.banned_claim",
     severity: "warn" as const,
     field,
