@@ -766,3 +766,55 @@ pure format strings, a separator and a sample category path.
 
 Counts: 154 API tests, 192 iOS tests in 26 suites plus UI tests, 9 python tests,
 Next production build clean. No migration, deployment or Apple action.
+
+### How to review this
+
+The whole change is `67fd09c..HEAD`, plus `ce40aa7` and `b243b67` for the
+server-side language field it builds on.
+
+```sh
+git log --oneline 67fd09c~1..HEAD
+git diff 67fd09c~1..HEAD --stat
+```
+
+Reproduce the checks before trusting the numbers above:
+
+```sh
+npm --prefix api run typecheck && npm --prefix api test   # 154
+npm --prefix api run build                                # production bundle
+make i18n                                                 # 229/229 strings
+python3 -m unittest discover -s ios/scripts -p 'test_*.py'
+xcodebuild -project ios/ListingForge.xcodeproj -scheme ListingForge \
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+The Vietnamese lives in exactly three files, which is where the wording review
+should happen:
+
+| File | Holds | Count |
+| --- | --- | --- |
+| `ios/ListingForge/Resources/Localizable.xcstrings` | the app's own interface | 222 |
+| `api/src/lib/i18n/vi.ts` | server messages, keyed by their English text | ~130 |
+| `api/src/lib/rules/messages.ts` | rule violations, built per language | 30 |
+
+Terminology was chosen once and applied throughout: marketplace → "sàn",
+listing stays "listing" (what Vietnamese sellers actually say), cutout → "ảnh
+tách nền", angle → "góc chụp", credits → "credit". Disagreeing with any of those
+means changing every occurrence, so it is worth settling before line edits.
+
+Two specific things worth attacking rather than reading past:
+
+- `api/src/lib/http.ts` — `error()` became async and reads the request context
+  from a helper. Every `return error(...)` resolves because the handlers are
+  async, and typecheck agrees, but a handler that ever stops being async would
+  return a Promise as a body. Worth deciding whether that is acceptable or
+  whether the language should be threaded explicitly after all.
+- `api/src/lib/i18n/vi.ts` keys are English sentences. Editing a message at its
+  throw site without editing the key here silently reverts that message to
+  English. The route test catches it for `src/app`; it does **not** catch it for
+  messages thrown inside `src/lib`. That gap is known and unguarded.
+
+Not done, and deliberately so: no Vietnamese phrase lists for the promotional
+wording and industry banned-claim checks. Vietnamese copy still gets the
+`.unchecked` warnings from `b243b67`. Writing those lists is a content problem,
+not a code one.
