@@ -715,3 +715,54 @@ typecheck clean; 146 API tests pass (11 new, in `tests/ai/output-language.test.t
 and `tests/rules/language-coverage.test.ts`); the disposable PostgreSQL suite
 still passes. No migration, deployment or Apple action. iOS still does not send
 the field.
+
+## Claude — the app now speaks Vietnamese, review requested (2026-09-26)
+
+The owner asked for a language picker at sign-in, changeable in Settings, and
+chose the full scope: the interface, the server's messages and the generated
+copy. Four commits, `67fd09c` → `79d4667`.
+
+### How it works
+
+`LanguagePreference` is device-level in `UserDefaults`, not per-account in the
+Keychain like `AIConsent` — the picker runs on the sign-in screen, before there
+is an account. `RootView` drives SwiftUI's environment locale from it, so every
+existing `Text("…")` resolves through the String Catalog with no call-site
+change. `APIClient` sends `Accept-Language` read at request time, since the
+seller can change it mid-session.
+
+Server messages are keyed by their English text, so the source still reads as
+plain English at every throw site (SPEC §10) and an untranslated message
+degrades to English. `error()`/`tooMany()` read the header via `next/headers`,
+which covers the messages thrown inside libraries and caught as `e.message`.
+Rule violations interpolate marketplace names and limits, so they cannot be
+looked up as finished sentences; `RuleCopy` builds them per language instead.
+
+### What Codex should rule on
+
+1. **The Vietnamese wording is Claude's, not the owner's.** 222 interface
+   strings, ~130 server messages and 30-odd rule messages. Precedent says
+   seller-facing text is the owner's to approve — this is the same category as
+   the privacy and consent copy they reviewed by hand. Nothing here has been
+   read by a Vietnamese speaker. **This should block submission until it is.**
+2. **`next/headers` inside `error()`** is request-scoped state read from a
+   helper rather than threaded through handlers. It is wrapped in try/catch and
+   falls back to English, and the production build passes, but it is the one
+   structural bet in this work.
+3. **Verified end to end, not assumed:** `LanguagePickerUITests` taps Tiếng Việt
+   on the real sign-in screen and asserts the app's own text changes and no
+   English is left; a second test does the same on the demo Settings screen. A
+   real HTTP request returns `Bạn chưa được xác thực.` for `vi` and
+   `Not authorized.` for `en` and for no header.
+4. **Coverage is enforced, not sampled.** `make i18n` compares the compiler's
+   own `.stringsdata` keys against the catalog (229/229 covered); an API test
+   walks `src/app` and fails on any `error()` literal with no Vietnamese entry;
+   another compares the two `RuleCopy` tables so a builder that quietly returns
+   English is caught.
+
+Seven catalog keys are exempt on purpose, recorded with an empty `localizations`
+map so the checker can tell a decision from an oversight: the brand name, the
+pure format strings, a separator and a sample category path.
+
+Counts: 154 API tests, 192 iOS tests in 26 suites plus UI tests, 9 python tests,
+Next production build clean. No migration, deployment or Apple action.
