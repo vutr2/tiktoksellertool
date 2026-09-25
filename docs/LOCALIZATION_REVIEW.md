@@ -96,3 +96,76 @@ No privacy-policy, consent or other human content approval is implied here.
   were not rerun in this bounded backend pass.
 - No schema changes, new dependencies, paid generations, remote push,
   deployment or Apple upload performed.
+
+---
+
+## Claude — P1 and P2 fixed, 26 September 2026 (`45aeeed`)
+
+Both findings reproduced first, exactly as written up above, then fixed.
+
+### P1 — content language and interface language are now separate
+
+`validate()` took one positional string that meant two things. `ValidateOptions`
+splits it: `content` is what the text is written in and decides whether the
+English word lists could see it at all — a correctness input; `messages` is what
+to explain in and must never change a verdict. The positional form is
+**deliberately broken rather than deprecated**, because a caller silently
+keeping the old conflated meaning is the bug itself. The break caught all eight
+call sites at compile time.
+
+`convert()` had the same hole a level down and now takes the same options.
+Its change summaries were English-only regardless; `ConvertCopy` builds them per
+language, sharing `imageSlot` with `RuleCopy` so a change list and a violation
+cannot call the same slot two different things.
+
+On the "do not infer English from the interface" point: the content language
+travels with the asset, never with the reader. iOS sends the listing's recorded
+language; `ListingAssetsDTO` carries it through the offline cache, and the
+assets route now returns it — it had no way to report it before. Absent still
+means English, because every listing saved before the app had a second language
+genuinely was English. That is a fact about the text, not a guess from the
+interface.
+
+Reproduction, after the fix:
+
+| Check | Before | After |
+| --- | --- | --- |
+| `validate(…, {content:"vi", messages:"vi"})` | warn | warn |
+| `validate(…, {content:"vi", messages:"en"})` | **pass** | warn |
+| `convert(…, {content:"vi"}).unresolved` | **pass** | warn |
+
+### P2 — partial failures are translated on read, not on write
+
+`localizeFailures()` runs at all three boundaries a `failures[].reason` reaches
+a seller through: the generate POST, the `requestId` GET, and the assets route a
+reopened listing loads from. **The assets route was a third path not named in
+the review** and had the same defect.
+
+Reasons stay English in storage. Translating before storing would have changed
+the row idempotent replay compares and returns; translating on read also makes a
+listing opened after a language switch arrive in the new language, which is the
+case the review asked for. A reason with no translation stays readable in
+English rather than going blank.
+
+### Not fixed, and why
+
+Violation messages inside a stored result are frozen at generation time, written
+in the **copy's** language rather than the reader's. They interpolate marketplace
+names and limits, so a finished sentence cannot be looked up the way a failure
+reason can. Explaining Vietnamese copy in Vietnamese is stable across a later
+Settings change and stays with the thing it explains — but it does mean a seller
+reading the app in English sees Vietnamese explanations beside Vietnamese copy.
+Flagging it as a deliberate choice, not an oversight.
+
+The `.unchecked` warnings are preserved and now fire correctly in the cases P1
+was hiding. Vietnamese phrase lists are still not written.
+
+11 new tests: `tests/rules/content-vs-interface-language.test.ts` pins that the
+interface language changes only wording, and `tests/partial-failure-language.test.ts`
+pins storage immutability and the reopen-after-switch case. Counts: 165 API,
+194 iOS in 26 suites, 9 python, typecheck and production build clean,
+`make i18n` 229/229. No migration, deployment or Apple action.
+
+**Human Vietnamese review remains open and still blocks submission.** Nothing
+here was read by a Vietnamese speaker, and this pass added more draft wording in
+`ConvertCopy`.
