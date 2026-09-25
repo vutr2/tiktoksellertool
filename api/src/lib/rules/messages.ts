@@ -169,3 +169,72 @@ const VI: RuleCopy = {
 export function ruleCopy(language: string): RuleCopy {
   return language === "vi" ? VI : EN;
 }
+
+/**
+ * What `convert()` says it did, and what it could not do.
+ *
+ * Kept beside RuleCopy for the same reason: the sentence names a marketplace,
+ * a size and a percentage, so each language has to build it rather than
+ * receive it finished.
+ */
+export interface ConvertCopy {
+  /** The same wording RuleCopy uses, so a change list and a violation do not
+   *  call the same slot two different things. */
+  imageSlot(slot: "main" | "secondary"): string;
+  personStillVisible(): string;
+  personStillVisibleDetail(name: string, slot: string): string;
+  croppedToRatio(ratio: string): string;
+  croppedToRatioDetail(before: string, width: number, height: number, name: string): string;
+  resized(width: number, height: number): string;
+  resizedDetail(before: string, max: number): string;
+  croppedToFill(percent: string): string;
+  croppedToFillDetail(before: string, name: string, percent: string): string;
+  borderCropped(): string;
+  borderCroppedDetail(name: string): string;
+  overlayTextRemoved(): string;
+  overlayTextRemovedDetail(slot: string, name: string): string;
+  backgroundWhitened(): string;
+  backgroundWhitenedDetail(rgb: string, name: string): string;
+}
+
+const CONVERT_EN: ConvertCopy = {
+  imageSlot: EN.imageSlot,
+  personStillVisible: () => "A person is still visible",
+  personStillVisibleDetail: (name, slot) =>
+    `${name} does not allow people on the ${slot}, and removing one would mean painting over the product. Move this shot to a secondary slot, or retake it without hands in frame.`,
+  croppedToRatio: (ratio) => `Cropped to ${ratio}`,
+  croppedToRatioDetail: (before, w, h, name) => `${before} → ${w}×${h}, as ${name} requires.`,
+  resized: (w, h) => `Resized to ${w} × ${h}`,
+  resizedDetail: (before, max) => `${before} exceeded the ${max}px limit.`,
+  croppedToFill: (percent) => `Cropped so the product fills ${percent} of the frame`,
+  croppedToFillDetail: (before, name, percent) => `Was ${before}. ${name} expects at least ${percent}.`,
+  borderCropped: () => "Border cropped away",
+  borderCroppedDetail: (name) => `${name} does not allow borders.`,
+  overlayTextRemoved: () => "Overlay text removed",
+  overlayTextRemovedDetail: (slot, name) => `Forbidden on the ${slot} by ${name}.`,
+  backgroundWhitened: () => "Background replaced with pure white",
+  backgroundWhitenedDetail: (rgb, name) => `RGB ${rgb}, as ${name} requires.`,
+};
+
+const CONVERT_VI: ConvertCopy = {
+  imageSlot: VI.imageSlot,
+  personStillVisible: () => "Vẫn còn thấy người trong ảnh",
+  personStillVisibleDetail: (name, slot) =>
+    `${name} không cho phép có người trên ${slot}, mà xoá đi thì phải vẽ đè lên sản phẩm. Hãy chuyển ảnh này sang vị trí ảnh phụ, hoặc chụp lại sao cho không có tay trong khung.`,
+  croppedToRatio: (ratio) => `Đã cắt về tỉ lệ ${ratio}`,
+  croppedToRatioDetail: (before, w, h, name) => `${before} → ${w}×${h}, đúng yêu cầu của ${name}.`,
+  resized: (w, h) => `Đã đổi kích thước về ${w} × ${h}`,
+  resizedDetail: (before, max) => `${before} vượt quá giới hạn ${max}px.`,
+  croppedToFill: (percent) => `Đã cắt để sản phẩm chiếm ${percent} khung hình`,
+  croppedToFillDetail: (before, name, percent) => `Trước đó là ${before}. ${name} yêu cầu tối thiểu ${percent}.`,
+  borderCropped: () => "Đã cắt bỏ viền khung",
+  borderCroppedDetail: (name) => `${name} không cho phép viền khung.`,
+  overlayTextRemoved: () => "Đã xoá chữ chèn lên ảnh",
+  overlayTextRemovedDetail: (slot, name) => `${name} cấm chữ chèn trên ${slot}.`,
+  backgroundWhitened: () => "Đã thay nền thành trắng tinh",
+  backgroundWhitenedDetail: (rgb, name) => `RGB ${rgb}, đúng yêu cầu của ${name}.`,
+};
+
+export function convertCopy(language: string): ConvertCopy {
+  return language === "vi" ? CONVERT_VI : CONVERT_EN;
+}

@@ -9,6 +9,10 @@ struct ConvertView: View {
 
     let source: String
     let assets: [ReviewAsset]
+    /// The language the saved copy is written in. Sent so the server knows
+    /// whether its English content checks could read this text — reading the
+    /// app in English must not make Vietnamese copy report as fully checked.
+    let language: AppLanguage
     let onContinue: (String) -> Void
 
     @State private var target = ""
@@ -221,7 +225,8 @@ struct ConvertView: View {
             var completed: [CheckedCopy] = []
             for asset in copy {
                 try Task.checkCancellation()
-                let body = ConversionCheckRequest(asset: TextToCheck(asset), from: source, to: requestedTarget)
+                let body = ConversionCheckRequest(asset: TextToCheck(asset), from: source,
+                                                  to: requestedTarget, language: language)
                 let result: ConversionCheckResult = try await environment.api.post(
                     "api/rules/convert", body: body, token: token)
                 guard !Task.isCancelled, target == requestedTarget, environment.auth.token == token else { return }
@@ -252,6 +257,7 @@ private struct ConversionCheckRequest: Encodable {
     let asset: TextToCheck
     let from: String
     let to: String
+    let language: AppLanguage
 }
 
 private struct TextToCheck: Encodable {

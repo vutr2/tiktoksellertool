@@ -107,6 +107,34 @@ struct AppLanguageTests {
         #expect(relaunched.errorMessage != nil)
     }
 
+    @Test("A listing cached before this field existed still loads, as English")
+    func legacyCachedListingDecodes() throws {
+        // These sit in the on-device snapshot cache. A required field would
+        // drop every offline listing a seller already has.
+        let legacy = """
+        {"product":{"id":"p1","name":"A","category":"B"},
+         "assets":[],"failures":[]}
+        """
+        let listing = try JSONDecoder().decode(ListingAssetsDTO.self, from: Data(legacy.utf8))
+
+        #expect(listing.outputLanguage == .en)
+    }
+
+    @Test("A listing carries the language it was generated in")
+    func generatedListingKeepsItsLanguage() throws {
+        let result = try JSONDecoder().decode(GenerateResultDTO.self, from: Data(Self.generated.utf8))
+        let listing = ListingAssetsDTO.generated(result, productName: "A")
+
+        // The free rules check sends this so the server knows whether its
+        // English content checks could read the copy. Losing it here would make
+        // Vietnamese copy report as fully checked.
+        #expect(listing.outputLanguage == .vi)
+
+        let roundTripped = try JSONDecoder().decode(
+            ListingAssetsDTO.self, from: JSONEncoder().encode(listing))
+        #expect(roundTripped.outputLanguage == .vi)
+    }
+
     private static let generated = """
     {"productId":"p1","language":"vi",
      "facts":{"suggestedName":"A","suggestedCategory":"B","material":null,"colour":null,

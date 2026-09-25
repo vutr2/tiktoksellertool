@@ -53,6 +53,10 @@ struct ReviewView: View {
     let productName: String
     let assets: [ReviewAsset]
     var productID: String? = nil
+    /// What this listing is written in, which is not the same thing as what the
+    /// reader's interface is set to. The server needs it to know whether its
+    /// English content checks could actually read this copy.
+    var listingLanguage: AppLanguage = .en
     /// Marketplaces that produced nothing, so a silent gap is never mistaken
     /// for a clean result.
     var failures: [GenerationFailureDTO] = []
@@ -178,7 +182,8 @@ struct ReviewView: View {
             }
         }) {
             if let current {
-                ConvertView(source: current, assets: shown) { conversionTarget = $0 }
+                ConvertView(source: current, assets: shown,
+                            language: resumedListing?.outputLanguage ?? listingLanguage) { conversionTarget = $0 }
             }
         }
     }

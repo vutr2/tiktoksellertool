@@ -86,7 +86,8 @@ private struct DemoWorkflowScreen: View {
                        productName: DemoData.products[0].name, thumbnail: DemoData.productImage,
                        industry: .home, stepLabel: "3 of 4", onContinue: {})
         case .convert:
-            ConvertView(source: "tiktok_shop", assets: DemoData.listing.assets.map(ReviewAsset.init), onContinue: { _ in })
+            ConvertView(source: "tiktok_shop", assets: DemoData.listing.assets.map(ReviewAsset.init),
+                        language: .en, onContinue: { _ in })
         default:
             EmptyView()
         }

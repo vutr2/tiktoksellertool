@@ -114,6 +114,7 @@ struct CaptureView: View {
                 productName: listing.facts.suggestedName,
                 assets: listing.assets.map(ReviewAsset.init),
                 productID: listing.productId,
+                listingLanguage: listing.outputLanguage,
                 failures: listing.failures
             )
         }

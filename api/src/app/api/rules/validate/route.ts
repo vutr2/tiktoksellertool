@@ -4,10 +4,14 @@ import { statusOf, validate } from "@/lib/rules/validate";
 import type { Asset, MarketplaceId } from "@/lib/rules/types";
 import { json, error } from "@/lib/http";
 import { languageFromHeader } from "@/lib/i18n";
+import { parseOutputLanguage } from "@/lib/ai/types";
 
 interface Body {
   marketplace?: MarketplaceId;
   asset?: Asset;
+  /** The language the asset is written in. Absent means English, which is what
+   *  every listing saved before the app had a second language actually was. */
+  language?: string;
 }
 
 export async function POST(request: Request) {
@@ -28,10 +32,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    // The free check explains rules to the seller, so it answers in the
-    // language they are reading the app in.
-    const language = languageFromHeader(request.headers.get("accept-language"));
-    const violations = validate(body.asset, rulesFor(body.marketplace), language);
+    // Two separate languages. The content language decides whether the
+    // engine's English word lists could see this text at all — reading the app
+    // in English must never make Vietnamese copy report as fully checked. The
+    // interface language only decides what the explanation is written in.
+    const content = parseOutputLanguage(body.language);
+    if (!content) return error("That language is not supported yet.");
+    const violations = validate(body.asset, rulesFor(body.marketplace), {
+      content,
+      messages: languageFromHeader(request.headers.get("accept-language")),
+    });
     // `status` is the pass/warn/fail badge the Review screen shows per asset.
     return json({ status: statusOf(violations), violations });
   } catch (e) {

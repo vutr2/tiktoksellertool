@@ -1,6 +1,8 @@
 import { verifySession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { json, error } from "@/lib/http";
+import { languageFromHeader } from "@/lib/i18n";
+import { localizeFailures } from "@/lib/generate";
 
 /**
  * The generated assets for one product, with their stored compliance results.
@@ -42,8 +44,19 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .eq("status", "completed").order("completed_at", { ascending: false }).limit(1).maybeSingle();
   if (latestError) return error("Could not load the generation result.", 503);
 
+  // Reopening a listing is the other path a partial failure reaches the seller
+  // through, and it is a 200 too. Reasons are stored in English and translated
+  // here on read, so a listing opened after switching language arrives in the
+  // new one. `language` is what the copy itself is written in — a different
+  // thing, and what the free rules check needs to judge it honestly.
+  const stored = localizeFailures(
+    { failures: (latest?.result?.failures ?? []) as { marketplace: string; reason: string }[] },
+    languageFromHeader(request.headers.get("accept-language")),
+  );
+
   return json({
-    failures: latest?.result?.failures ?? [],
+    failures: stored.failures,
+    language: latest?.result?.language ?? "en",
     product: { id: product.id, name: product.name, category: product.category ?? null },
     assets: (data ?? []).map((row) => ({
       id: row.id as string,

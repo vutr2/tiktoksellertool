@@ -52,7 +52,7 @@ test("an untranslated message degrades to English, not to a blank or a code", ()
 test("a Vietnamese violation has no English left in it", () => {
   const amazon = rulesFor("amazon");
   const long = "x".repeat((amazon.title?.maxChars ?? 200) + 12);
-  const violations = validate({ type: "title", text: long }, amazon, "vi");
+  const violations = validate({ type: "title", text: long }, amazon, { content: "vi" });
   const tooLong = violations.find((v) => v.code === "title.too_long");
 
   assert.ok(tooLong);

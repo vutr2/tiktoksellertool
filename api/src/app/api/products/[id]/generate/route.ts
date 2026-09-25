@@ -1,10 +1,11 @@
 import { billingStatus, BillingError } from "@/lib/billing";
 import { verifySession } from "@/lib/session";
-import { generateListings, GenerationRequestError, quoteCredits } from "@/lib/generate";
+import { generateListings, GenerationRequestError, localizeFailures, quoteCredits } from "@/lib/generate";
 import { InsufficientCreditsError } from "@/lib/credits";
 import { MARKETPLACE_IDS } from "@/lib/rules/registry";
 import type { MarketplaceId } from "@/lib/rules/types";
 import { parseOutputLanguage } from "@/lib/ai/types";
+import { languageFromHeader } from "@/lib/i18n";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ProductError, readLimitedBody } from "@/lib/products";
 import { json, error } from "@/lib/http";
@@ -37,7 +38,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const plan = await billingStatus(claims.orgId, claims.userId);
     if (input.marketplaces.some(m => !plan.allowedMarketplaces.includes(m))) return error("Choose Pro or Scale to generate for this marketplace.", 403);
-    return json(await generateListings(claims.orgId, { productId: id, requestId: body.requestId, ...input, language }));
+    // A partial success is a 200, so its failure reasons never meet error().
+    // They are translated here, on the way out, in the language the seller is
+    // reading the app in.
+    const reading = languageFromHeader(request.headers.get("accept-language"));
+    const result = await generateListings(claims.orgId, { productId: id, requestId: body.requestId, ...input, language });
+    return json(localizeFailures(result, reading));
   } catch (e) {
     if (e instanceof InsufficientCreditsError) return error(e.message, 402, { required: e.required, available: e.available });
     if (e instanceof BillingError) return error(e.message, e.status);
@@ -64,7 +70,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       .eq("id", requestId).eq("org_id", claims.orgId).eq("product_id", id).maybeSingle();
     if (readError) return error("Could not check this generation. Try again.", 503);
     if (!data) return error("That generation has not started.", 404);
-    if (data.status === "completed") return json(data.result);
+    // Translated on read, not on write: a listing reopened after the seller
+    // switches language arrives in the new one.
+    if (data.status === "completed") {
+      return json(localizeFailures(data.result as { failures?: { marketplace: string; reason: string }[] },
+                                   languageFromHeader(request.headers.get("accept-language"))));
+    }
     if (data.status === "running" && Date.parse(data.lease_expires_at) > Date.now()) {
       return error("Your listing is still being generated. Check again shortly.", 409);
     }

@@ -127,20 +127,28 @@ struct ListingAssetsDTO: Codable {
     let product: ListingProductDTO
     let assets: [StoredAssetDTO]
     let failures: [GenerationFailureDTO]
+    /// Absent on listings cached before the app had a second language. Those
+    /// were English, so the fallback is a fact rather than a guess — and the
+    /// server needs it to know whether its content checks could read the copy.
+    private let language: AppLanguage?
+    var outputLanguage: AppLanguage { language ?? .en }
 
-    init(product: ListingProductDTO, assets: [StoredAssetDTO], failures: [GenerationFailureDTO] = []) {
+    init(product: ListingProductDTO, assets: [StoredAssetDTO],
+         failures: [GenerationFailureDTO] = [], language: AppLanguage? = nil) {
         self.product = product
         self.assets = assets
         self.failures = failures
+        self.language = language
     }
 
-    private enum CodingKeys: String, CodingKey { case product, assets, failures }
+    private enum CodingKeys: String, CodingKey { case product, assets, failures, language }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         product = try values.decode(ListingProductDTO.self, forKey: .product)
         assets = try values.decode([StoredAssetDTO].self, forKey: .assets)
         failures = try values.decodeIfPresent([GenerationFailureDTO].self, forKey: .failures) ?? []
+        language = try values.decodeIfPresent(AppLanguage.self, forKey: .language)
     }
 
     static func generated(_ result: GenerateResultDTO, productName: String) -> Self {
@@ -152,7 +160,8 @@ struct ListingAssetsDTO: Codable {
                                marketplace: asset.marketplace, content: asset.content,
                                status: asset.status.rawValue, violations: asset.violations)
             },
-            failures: result.failures
+            failures: result.failures,
+            language: result.outputLanguage
         )
     }
 }

@@ -33,6 +33,30 @@ const ASPECT_TOLERANCE = 0.01;
 const CONTENT_LANGUAGE = "en";
 
 /**
+ * Two different languages, deliberately not one parameter.
+ *
+ * `content` is what the text being checked is written in. It decides whether
+ * the English word lists above could see it at all, so it is a correctness
+ * input: get it wrong and a check silently reports clean.
+ *
+ * `messages` is what to explain in. It is presentation, and changing it must
+ * never change a verdict.
+ *
+ * These were a single positional string once, and the interface language was
+ * passed into it. Switching the app to English then made Vietnamese copy read
+ * as fully checked. The options object exists so that cannot be expressed.
+ */
+export interface ValidateOptions {
+  /** Defaults to English: everything written before the app had a second
+   *  language was English, and that is a fact about the text, not a guess from
+   *  whatever the reader's interface is set to. */
+  content?: string;
+  /** Defaults to the content language, so an explanation arrives in the same
+   *  language as the thing it explains unless a caller says otherwise. */
+  messages?: string;
+}
+
+/**
  * Character counts are taken on the composed form.
  *
  * "Máy pha cà phê" is 14 characters composed and 17 decomposed, and nothing
@@ -57,13 +81,14 @@ const PROMO_PHRASES = [
 /** A title is shouting only when it has real length and no lowercase at all. */
 const ALL_CAPS_MIN_LETTERS = 8;
 
-export function validate(asset: Asset, rules: MarketplaceRules, language: string = CONTENT_LANGUAGE): Violation[] {
-  const t = ruleCopy(language);
+export function validate(asset: Asset, rules: MarketplaceRules, options: ValidateOptions = {}): Violation[] {
+  const content = options.content ?? CONTENT_LANGUAGE;
+  const t = ruleCopy(options.messages ?? content);
   switch (asset.type) {
     case "image":
       return validateImage(asset, rules, t);
     case "title":
-      return validateTitle(asset, rules, language, t);
+      return validateTitle(asset, rules, content, t);
     case "description":
       return validateDescription(asset, rules, t);
     case "script":

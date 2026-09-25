@@ -21,6 +21,7 @@ import { CUTOUT_BUCKET } from "./products.ts";
 import { isIndustry, type Industry } from "./studio.ts";
 import { INDUSTRY_PACKS, lintClaims } from "./industry-packs.ts";
 import { supabaseAdmin } from "./supabase.ts";
+import { localize } from "./i18n/index.ts";
 
 /** Title plus description, per marketplace. */
 const CREDITS_PER_MARKETPLACE = CREDIT_COST.titleOrDescription * 2;
@@ -155,7 +156,10 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
       // own text — the model is not trusted to have followed the limits. The
       // industry banned-claim lint adds warnings on top.
       const titleViolations = [
-        ...validate({ type: "title", text: copy.value.title }, rules, language),
+        // Explanations are stored with the listing and replayed on reopen, so
+ // they are written in the copy's own language rather than in whatever
+ // the reader's interface happens to be set to at the time.
+        ...validate({ type: "title", text: copy.value.title }, rules, { content: language }),
         ...industryLint(copy.value.title, industry, "title", language),
       ];
       assets.push({
@@ -174,7 +178,7 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
           ? { type: "description" as const, bullets: copy.value.bullets }
           : { type: "description" as const, text: copy.value.description ?? "" };
       const descriptionViolations = [
-        ...validate(descriptionAsset, rules, language),
+        ...validate(descriptionAsset, rules, { content: language }),
         ...industryLint(descriptionText, industry, "description", language),
       ];
       assets.push({
@@ -251,6 +255,28 @@ export async function generateListings(orgId: string, input: GenerateInput): Pro
     await db.rpc("fail_generation", { p_request_id: input.requestId, p_lease_token: leaseToken });
     throw error;
   }
+}
+
+/**
+ * Translates the failure reasons in a result on its way out.
+ *
+ * A partial success is a 200, so it never passes through `error()` and its
+ * `failures[].reason` was reaching the seller in English whatever language they
+ * were reading. The reasons are stored in English and translated here on every
+ * read instead of being translated before they are stored: a listing reopened
+ * after the seller switches language then arrives in the new one, and the
+ * stored result — the thing idempotent replay compares and returns — is
+ * untouched.
+ */
+export function localizeFailures<T extends { failures?: { marketplace: string; reason: string }[] }>(
+  result: T,
+  language: OutputLanguage,
+): T {
+  if (language === "en" || !Array.isArray(result?.failures) || result.failures.length === 0) return result;
+  return {
+    ...result,
+    failures: result.failures.map((failure) => ({ ...failure, reason: localize(failure.reason, language) })),
+  };
 }
 
 export class GenerationRequestError extends Error {

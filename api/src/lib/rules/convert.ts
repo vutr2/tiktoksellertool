@@ -9,7 +9,8 @@
 // as unresolved. The engine therefore cannot claim a success it did not
 // achieve — the claim is checked by the same rules that judged the original.
 
-import { validate } from "./validate.ts";
+import { validate, type ValidateOptions } from "./validate.ts";
+import { convertCopy, type ConvertCopy } from "./messages.ts";
 import type {
   Asset,
   Change,
@@ -34,13 +35,15 @@ export function convert(
   asset: Asset,
   from: MarketplaceRules,
   to: MarketplaceRules,
+  options: ValidateOptions = {},
 ): ConversionResult {
+  const t = convertCopy(options.messages ?? options.content ?? "en");
   const changes: Change[] = [];
   let requiresRerender = false;
   let projected: Asset = asset;
 
   if (asset.type === "image") {
-    const outcome = projectImage(asset, to);
+    const outcome = projectImage(asset, to, t);
     projected = outcome.asset;
     changes.push(...outcome.changes);
     requiresRerender = outcome.requiresRerender;
@@ -49,8 +52,10 @@ export function convert(
   // dropping a bullet loses information the seller wrote on purpose — that is
   // degradation, so it is reported instead of applied.
 
-  // The projection is judged by the same rules as the original.
-  const unresolved = validate(projected, to);
+  // The projection is judged by the same rules as the original — and in the
+  // same two languages, so converting a Vietnamese listing does not quietly
+  // report it as fully checked.
+  const unresolved = validate(projected, to, options);
 
   return {
     from: from.id,
@@ -68,7 +73,7 @@ interface ImageProjection {
   requiresRerender: boolean;
 }
 
-function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection {
+function projectImage(asset: ImageAsset, to: MarketplaceRules, t: ConvertCopy): ImageProjection {
   const changes: Change[] = [];
   let requiresRerender = false;
   const slot = asset.slot;
@@ -91,8 +96,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
   if (rule.forbid?.includes("human") && facts.contains?.includes("human") && slot === "main") {
     changes.push({
       code: "image.recommend_secondary_slot",
-      summary: "A person is still visible",
-      detail: `${name} does not allow people on the main image, and removing one would mean painting over the product. Move this shot to a secondary slot, or retake it without hands in frame.`,
+      summary: t.personStillVisible(),
+      detail: t.personStillVisibleDetail(name, t.imageSlot("main")),
       status: "needs_review",
     });
   }
@@ -110,8 +115,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
       }
       changes.push({
         code: "image.cropped_to_ratio",
-        summary: `Cropped to ${rule.aspectRatio}`,
-        detail: `${before} → ${facts.widthPx}×${facts.heightPx}, as ${name} requires.`,
+        summary: t.croppedToRatio(rule.aspectRatio),
+        detail: t.croppedToRatioDetail(before, facts.widthPx, facts.heightPx, name),
         status: "applied",
       });
     }
@@ -129,8 +134,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
       facts.heightPx = Math.round(facts.heightPx * scale);
       changes.push({
         code: "image.resized",
-        summary: `Resized to ${facts.widthPx} × ${facts.heightPx}`,
-        detail: `${before} exceeded the ${rule.maxLongestEdge}px limit.`,
+        summary: t.resized(facts.widthPx, facts.heightPx),
+        detail: t.resizedDetail(before, rule.maxLongestEdge),
         status: "applied",
       });
     }
@@ -147,8 +152,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
     facts.productFillRatio = minFill;
     changes.push({
       code: "image.cropped_for_fill",
-      summary: `Cropped so the product fills ${Math.round(minFill * 100)}% of the frame`,
-      detail: `Was ${before}. ${name} expects at least ${Math.round(minFill * 100)}%.`,
+      summary: t.croppedToFill(`${Math.round(minFill * 100)}%`),
+      detail: t.croppedToFillDetail(before, name, `${Math.round(minFill * 100)}%`),
       status: "applied",
     });
   }
@@ -159,8 +164,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
     facts.contains = facts.contains.filter((c) => c !== "border");
     changes.push({
       code: "image.border_cropped",
-      summary: "Border cropped away",
-      detail: `${name} does not allow borders.`,
+      summary: t.borderCropped(),
+      detail: t.borderCroppedDetail(name),
       status: "applied",
     });
   }
@@ -172,8 +177,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
     requiresRerender = true;
     changes.push({
       code: "image.overlay_text_removed",
-      summary: "Overlay text removed",
-      detail: `Forbidden on the ${slot === "main" ? "main image" : "secondary image"} by ${name}.`,
+      summary: t.overlayTextRemoved(),
+      detail: t.overlayTextRemovedDetail(t.imageSlot(slot === "main" ? "main" : "secondary"), name),
       status: "applied",
     });
   }
@@ -191,8 +196,8 @@ function projectImage(asset: ImageAsset, to: MarketplaceRules): ImageProjection 
       requiresRerender = true;
       changes.push({
         code: "image.background_replaced",
-        summary: "Background replaced with pure white",
-        detail: `RGB ${expected.join("/")}, as ${name} requires.`,
+        summary: t.backgroundWhitened(),
+        detail: t.backgroundWhitenedDetail(expected.join("/"), name),
         status: "applied",
       });
     }
