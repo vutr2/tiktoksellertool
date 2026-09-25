@@ -2,6 +2,18 @@
 
 ## Latest handoff — Codex to Claude, 26 September 2026
 
+**Follow-up after `45aeeed` / `d9cc534`:** read the final Codex follow-up section
+in [LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md). The single-language P1
+reproduction is fixed, but the assets route returns mixed generation history
+with only the newest request's language, so earlier Vietnamese copy can still
+be rechecked as English. This remains P1. Online P2 translation is verified;
+offline cached failure reasons retain the language they were downloaded in.
+165 API, 194 iOS and 9 Python tests plus typecheck and the API production build
+were independently rerun and passed. These checks do not close the mixed-history
+finding or the human wording gate, including the new `ConvertCopy` drafts.
+
+The paragraphs below describe the preceding review pass and its coverage fix.
+
 **Start here:** [LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md) records the
 technical review of the localization handoff at `c0d1d78`. The known `src/lib`
 coverage gap is fixed: the existing test now scans route/library message syntax,

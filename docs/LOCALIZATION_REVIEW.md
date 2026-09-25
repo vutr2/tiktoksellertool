@@ -1,5 +1,9 @@
 # Localization review — Codex, 26 September 2026
 
+**Current status:** see the final “Codex follow-up on `45aeeed`” section. The
+single-language checks and online failure translation improved, but mixed-language
+product history still has a P1. Human Vietnamese approval remains pending.
+
 Reviewed the latest Claude handoff at `c0d1d78`, focusing on the acknowledged
 `src/lib` message coverage gap. This is a technical review, **not human approval
 of Vietnamese wording and not a submission sign-off**.
@@ -169,3 +173,86 @@ pins storage immutability and the reopen-after-switch case. Counts: 165 API,
 **Human Vietnamese review remains open and still blocks submission.** Nothing
 here was read by a Vietnamese speaker, and this pass added more draft wording in
 `ConvertCopy`.
+
+---
+
+## Codex follow-up on `45aeeed` — 26 September 2026
+
+Reviewed Claude's implementation and the follow-up note at `d9cc534`.
+No application code was changed in this review; the findings below are the next
+implementation work for Claude. Passing existing tests is not closure of P1.
+
+### P1 remains — the assets route labels mixed history with the latest language
+
+The split between `ValidateOptions.content` and `.messages` is correct, and the
+new tests pass when the caller supplies the right content language. However,
+`api/src/app/api/products/[id]/assets/route.ts:34` loads **all** asset rows for
+the product, while lines 42–59 take **one** language from the most recent
+completed generation. Previous assets are retained by `complete_generation`
+(`0003_generation_settlement.sql:115` inserts new rows). The language of one
+generation is therefore not a fact about every returned asset.
+
+`ReviewView` displays the accumulated assets and passes that one language to
+`ConvertView`; `ConvertView.swift:228` uses it for every text asset. This is
+reachable through normal use: generate Vietnamese copy, switch to English,
+generate again for the same product, then reopen it from Products. The earlier
+Vietnamese copy now goes through Convert as English. A later completed request
+with no successful assets can also relabel the earlier successful work.
+
+Reproduced with a local two-asset fixture using the route's current language
+selection and the actual `convert()`/`statusOf()` functions, without a paid
+provider request or live database:
+
+| Saved asset | Original language | Language sent after reopen | Actual / expected |
+| --- | --- | --- | --- |
+| `Máy pha cà phê miễn phí vận chuyển` | vi | en | pass / warn |
+| `Ceramic pour over coffee dripper` | en | en | pass / pass |
+
+This is a fixture reproduction plus route/client source inspection, not a live
+authenticated end-to-end test. It demonstrates a case absent from the new tests:
+those pass a known correct language directly and do not exercise mixed history.
+
+**Next fix:** preserve language per asset or per explicitly selected generation
+all the way through the assets response, Swift DTO/cache, `ReviewAsset` and
+Convert request. Existing `generation_requests.result.assets[].id` and result
+language can provide provenance without assuming a new schema is necessary.
+Do not silently discard older paid output just to make a product monolingual.
+Do not infer English from the newest request when an asset's origin is unknown.
+Add regressions for vi → en history, different marketplaces across requests,
+and a last request that completed with failures and zero new assets.
+
+### P2 online fix accepted; offline language switching is still limited
+
+Confirmed `localizeFailures()` is applied at generate POST, request-status GET
+and assets GET. Its tests verify that stored English reasons, generated content
+and credit amounts are not mutated. Reopening online therefore uses the newly
+requested interface language.
+
+The actual offline path is different: `GenerationStore.swift:257–272` saves the
+already-localized `ListingAssetsDTO` and later returns that snapshot unchanged
+when the network fails. A seller who caches Vietnamese failure reasons, switches
+the interface to English and reopens offline still sees Vietnamese reasons.
+The reverse switch has the equivalent limitation. This was established by code
+inspection; a physical-device offline language-switch test was not run here.
+The new “reopened after switching” test calls the translator on an English
+fixture again, so it does not cover this cache path.
+
+If offline switching must translate explanations too, retain canonical failure
+codes/reasons alongside display text and localize when displaying cached data.
+Otherwise document this as a deliberate offline limitation, like the stored
+violation-message limitation already acknowledged above. Do not describe all
+reopen paths as translated on read while this snapshot path is unchanged.
+
+### Verification and release gate
+
+- Independently reran typecheck, **165 API tests**, Next production build,
+  **194 iOS unit tests in 26 suites**, and **9 Python tests**: passed.
+- Regenerated the Xcode project and ran the iOS tests on the dedicated iPhone
+  17 / iOS 26.5 simulator. UI picker tests and a signed archive were not rerun.
+- Checked the catalog against `.stringsdata` from that exact build directory:
+  **229/229** localizable strings have coverage. This checks presence, not wording.
+- **Human Vietnamese wording review is still open and blocks submission**, now
+  explicitly including `ConvertCopy` in `api/src/lib/rules/messages.ts`. This
+  technical review does not approve those drafts.
+- No customer data mutations, paid generations, migrations, remote push,
+  deployment or Apple upload occurred in this review.
