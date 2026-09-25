@@ -13,12 +13,13 @@ BUNDLE  := com.ctt.listingforge
 DEST    := platform=iOS Simulator,name=$(DEVICE)
 LOG     := /tmp/listingforge-test.log
 
-.PHONY: help gen build test run shot api clean devices
+.PHONY: help gen build test run shot api clean devices i18n
 
 help:
 	@echo "make build    - regenerate project + compile for the simulator"
 	@echo "make test     - run the 40 unit tests + UI test"
 	@echo "make run      - build, boot the simulator, install and launch"
+	@echo "make i18n     - check every user-facing string has a Vietnamese translation"
 	@echo "make shot     - screenshot the booted simulator to sim.png"
 	@echo "make api      - start the Next.js backend on :3000"
 	@echo "make devices  - list available simulators"
@@ -38,6 +39,14 @@ test: gen
 	  | tee $(LOG) \
 	  | grep -E '✔ Suite|✘|error:|Test run with|Executed [0-9]+ test|\*\* TEST' || true
 	@grep -q '\*\* TEST SUCCEEDED \*\*' $(LOG) || { echo "Full log: $(LOG)"; exit 1; }
+
+# Reads the keys the compiler emitted during the build, so a string added
+# without a translation is caught before a seller reads it mid-screen.
+i18n: build
+	@OBJECTS="$$(dirname "$$(find $$HOME/Library/Developer/Xcode/DerivedData -name 'AuthView.stringsdata' \
+	  -path '*Debug-iphonesimulator*' 2>/dev/null | grep -v Index.noindex | head -1)")"; \
+	python3 ios/scripts/check_localization.py \
+	  --catalog ios/ListingForge/Resources/Localizable.xcstrings --objects "$$OBJECTS"
 
 run: build
 	@xcrun simctl boot "$(DEVICE)" 2>/dev/null || true

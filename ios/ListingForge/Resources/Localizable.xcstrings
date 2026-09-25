@@ -1,11 +1,2254 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Marketplace-ready listings from one photo." : {
-      "localizations" : {
-        "vi" : { "stringUnit" : { "state" : "translated", "value" : "Listing chuẩn sàn chỉ từ một tấm ảnh." } }
+  "sourceLanguage": "en",
+  "strings": {
+    "": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "%@ / %@": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "%@ credits / month": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ credit / tháng"
+          }
+        }
       }
+    },
+    "%@, %@": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "%lld": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "%lld Angle%@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld góc chụp"
+          }
+        }
+      }
+    },
+    "%lld angles captured": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chụp %lld góc"
+          }
+        }
+      }
+    },
+    "%lld beats · %@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld nhịp · %@"
+          }
+        }
+      }
+    },
+    "%lld characters": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ký tự"
+          }
+        }
+      }
+    },
+    "%lld of %lld photos prepared": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chuẩn bị %lld / %lld ảnh"
+          }
+        }
+      }
+    },
+    "%lld of %lld photos saved for this style": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lưu %lld / %lld ảnh cho phong cách này"
+          }
+        }
+      }
+    },
+    "%lld selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chọn %lld"
+          }
+        }
+      }
+    },
+    "100 trial credits. Renews at the selected plan price unless canceled.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "100 credit dùng thử. Tự gia hạn theo giá gói đã chọn nếu bạn không huỷ."
+          }
+        }
+      }
+    },
+    "300 credits · never expire": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "300 credit · không hết hạn"
+          }
+        }
+      }
+    },
+    "6-digit code": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã 6 chữ số"
+          }
+        }
+      }
+    },
+    "AI data sharing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chia sẻ dữ liệu với AI"
+          }
+        }
+      }
+    },
+    "AI-generated content. Review product facts before publishing.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nội dung do AI tạo. Hãy kiểm tra lại thông tin sản phẩm trước khi đăng."
+          }
+        }
+      }
+    },
+    "ANGLES TO GENERATE": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SỐ GÓC CẦN TẠO"
+          }
+        }
+      }
+    },
+    "Account": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài khoản"
+          }
+        }
+      }
+    },
+    "Account deleted": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã xoá tài khoản"
+          }
+        }
+      }
+    },
+    "Ad scripts": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kịch bản quảng cáo"
+          }
+        }
+      }
+    },
+    "Ad scripts · optional": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kịch bản quảng cáo · không bắt buộc"
+          }
+        }
+      }
+    },
+    "Allow and continue": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cho phép và tiếp tục"
+          }
+        }
+      }
+    },
+    "Angle %lld": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Góc %lld"
+          }
+        }
+      }
+    },
+    "Annual · save 17%": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo năm · tiết kiệm 17%"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quay lại"
+          }
+        }
+      }
+    },
+    "Back to capture": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quay lại chụp ảnh"
+          }
+        }
+      }
+    },
+    "Background removal happens on your device. The original camera frame is not sent. Avoid including personal or sensitive information in your product photos and descriptions.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Việc tách nền diễn ra ngay trên máy của bạn. Ảnh gốc từ camera không được gửi đi. Tránh để thông tin cá nhân hoặc nhạy cảm trong ảnh và mô tả sản phẩm."
+          }
+        }
+      }
+    },
+    "Background removed": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã tách nền"
+          }
+        }
+      }
+    },
+    "Background removed on device": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã tách nền ngay trên máy"
+          }
+        }
+      }
+    },
+    "Billed annually": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanh toán theo năm"
+          }
+        }
+      }
+    },
+    "Billed annually · save %lld%% vs monthly": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanh toán theo năm · tiết kiệm %lld%% so với theo tháng"
+          }
+        }
+      }
+    },
+    "Billing period": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chu kỳ thanh toán"
+          }
+        }
+      }
+    },
+    "CHOOSE A STYLE": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHỌN PHONG CÁCH"
+          }
+        }
+      }
+    },
+    "CONVERT TO": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CHUYỂN SANG"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Huỷ"
+          }
+        }
+      }
+    },
+    "Capture": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh"
+          }
+        }
+      }
+    },
+    "Capture a product to get started, or check Hidden products in the menu.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp một sản phẩm để bắt đầu, hoặc xem mục Sản phẩm đã ẩn trong menu."
+          }
+        }
+      }
+    },
+    "Category": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danh mục"
+          }
+        }
+      }
+    },
+    "Check another marketplace · free": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra sàn khác · miễn phí"
+          }
+        }
+      }
+    },
+    "Check the product’s edges and label before taking another angle.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra viền và nhãn sản phẩm trước khi chụp góc tiếp theo."
+          }
+        }
+      }
+    },
+    "Checking saved text…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang kiểm tra nội dung đã lưu…"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đóng"
+          }
+        }
+      }
+    },
+    "Confirm your Apple account so we can disconnect it while deleting your Listing Force account.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác nhận tài khoản Apple để chúng tôi ngắt liên kết khi xoá tài khoản Listing Force của bạn."
+          }
+        }
+      }
+    },
+    "Contact support": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liên hệ hỗ trợ"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục"
+          }
+        }
+      }
+    },
+    "Continue listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục làm listing"
+          }
+        }
+      }
+    },
+    "Continue to %@ listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục với listing %@"
+          }
+        }
+      }
+    },
+    "Continue to listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục tới listing"
+          }
+        }
+      }
+    },
+    "Continue with %lld photo%@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục với %lld ảnh"
+          }
+        }
+      }
+    },
+    "Continue with email": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục bằng email"
+          }
+        }
+      }
+    },
+    "Copied": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã sao chép"
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sao chép"
+          }
+        }
+      }
+    },
+    "Couldn’t open your products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không mở được sản phẩm của bạn"
+          }
+        }
+      }
+    },
+    "Couldn’t prepare that photo": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không xử lý được ảnh đó"
+          }
+        }
+      }
+    },
+    "Create product photos and listing content from one shoot. Choose the plan that fits your business.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo ảnh sản phẩm và nội dung listing chỉ từ một buổi chụp. Chọn gói phù hợp với công việc của bạn."
+          }
+        }
+      }
+    },
+    "Create product photos and listing copy tailored to every marketplace.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo ảnh sản phẩm và nội dung listing riêng cho từng sàn."
+          }
+        }
+      }
+    },
+    "Delete %lld products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá %lld sản phẩm"
+          }
+        }
+      }
+    },
+    "Delete %lld products?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá %lld sản phẩm?"
+          }
+        }
+      }
+    },
+    "Delete Account": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá tài khoản"
+          }
+        }
+      }
+    },
+    "Delete account and disconnect Apple manually": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá tài khoản và tự ngắt liên kết Apple"
+          }
+        }
+      }
+    },
+    "Delete product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá sản phẩm"
+          }
+        }
+      }
+    },
+    "Delete selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá mục đã chọn"
+          }
+        }
+      }
+    },
+    "Delete this product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá sản phẩm này"
+          }
+        }
+      }
+    },
+    "Delete this product?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá sản phẩm này?"
+          }
+        }
+      }
+    },
+    "Delete your account?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá tài khoản của bạn?"
+          }
+        }
+      }
+    },
+    "Deletes your account and product content. Purchase records needed for refunds may be retained. Deleting your account does not cancel an Apple subscription.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá tài khoản và toàn bộ nội dung sản phẩm của bạn. Hồ sơ mua hàng cần cho việc hoàn tiền có thể được giữ lại. Xoá tài khoản không đồng nghĩa với huỷ gói đăng ký Apple."
+          }
+        }
+      }
+    },
+    "Deletion incomplete · tap to retry": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xoá chưa xong · chạm để thử lại"
+          }
+        }
+      }
+    },
+    "Describe inaccurate, unsafe, or inappropriate content": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mô tả nội dung sai lệch, không an toàn hoặc không phù hợp"
+          }
+        }
+      }
+    },
+    "Deselect all": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ chọn tất cả"
+          }
+        }
+      }
+    },
+    "Destination marketplace": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sàn đích"
+          }
+        }
+      }
+    },
+    "Disconnect Sign in with Apple": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngắt liên kết Đăng nhập bằng Apple"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xong"
+          }
+        }
+      }
+    },
+    "Edit as a new draft": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sửa thành bản nháp mới"
+          }
+        }
+      }
+    },
+    "Email": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email"
+          }
+        }
+      }
+    },
+    "Error: %@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lỗi: %@"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xuất ảnh"
+          }
+        }
+      }
+    },
+    "Exposure and white balance locked": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã khoá phơi sáng và cân bằng trắng"
+          }
+        }
+      }
+    },
+    "Exposure locks after your next shot": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phơi sáng sẽ khoá sau lần chụp kế tiếp"
+          }
+        }
+      }
+    },
+    "Flash %@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đèn flash %@"
+          }
+        }
+      }
+    },
+    "Generate a title and description to check them for another marketplace.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo tiêu đề và mô tả để kiểm tra cho một sàn khác."
+          }
+        }
+      }
+    },
+    "Generate five 30-second video scripts, each with a 3-second hook.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo năm kịch bản video 30 giây, mỗi kịch bản có một hook 3 giây."
+          }
+        }
+      }
+    },
+    "Generate listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo listing"
+          }
+        }
+      }
+    },
+    "Generate listing content": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo nội dung listing"
+          }
+        }
+      }
+    },
+    "Generate scripts": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo kịch bản"
+          }
+        }
+      }
+    },
+    "Generate studio shots": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo ảnh studio"
+          }
+        }
+      }
+    },
+    "Harden edges": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Làm sắc viền"
+          }
+        }
+      }
+    },
+    "Hidden products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm đã ẩn"
+          }
+        }
+      }
+    },
+    "Hide product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ẩn sản phẩm"
+          }
+        }
+      }
+    },
+    "Hide selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ẩn mục đã chọn"
+          }
+        }
+      }
+    },
+    "Home & Kitchen › Coffee": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "Import product photo": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhập ảnh sản phẩm"
+          }
+        }
+      }
+    },
+    "Industry": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngành hàng"
+          }
+        }
+      }
+    },
+    "Industry, %@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngành hàng, %@"
+          }
+        }
+      }
+    },
+    "Keep working": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục làm"
+          }
+        }
+      }
+    },
+    "Key features (optional)": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đặc điểm nổi bật (không bắt buộc)"
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngôn ngữ"
+          }
+        }
+      }
+    },
+    "List on all four\nmarketplaces": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng lên cả bốn\nsàn"
+          }
+        }
+      }
+    },
+    "Listing Force": {
+      "extractionState": "manual",
+      "localizations": {}
+    },
+    "Listing Force sends your product cutout photos, product details and visible label text to Anthropic, which processes them to generate listing text and ad scripts.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listing Force gửi ảnh sản phẩm đã tách nền, thông tin sản phẩm và chữ đọc được trên nhãn tới Anthropic để tạo nội dung listing và kịch bản quảng cáo."
+          }
+        }
+      }
+    },
+    "Listing language": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ngôn ngữ listing"
+          }
+        }
+      }
+    },
+    "Loading marketplaces…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải danh sách sàn…"
+          }
+        }
+      }
+    },
+    "Loading plans and prices…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải gói và giá…"
+          }
+        }
+      }
+    },
+    "Loading products…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải sản phẩm…"
+          }
+        }
+      }
+    },
+    "Loading saved photos…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải ảnh đã lưu…"
+          }
+        }
+      }
+    },
+    "Loading scripts…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải kịch bản…"
+          }
+        }
+      }
+    },
+    "Loading styles…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải phong cách…"
+          }
+        }
+      }
+    },
+    "Lock\nAE/AWB": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khoá\nAE/AWB"
+          }
+        }
+      }
+    },
+    "Manage Apple subscriptions": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý gói đăng ký Apple"
+          }
+        }
+      }
+    },
+    "Manage subscriptions": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quản lý gói đăng ký"
+          }
+        }
+      }
+    },
+    "Marketplace rules are unavailable.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện chưa lấy được quy tắc của sàn."
+          }
+        }
+      }
+    },
+    "Marketplace-ready listings from one photo.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listing chuẩn sàn chỉ từ một tấm ảnh."
+          }
+        }
+      }
+    },
+    "Monthly": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo tháng"
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm"
+          }
+        }
+      }
+    },
+    "Need extra credits?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần thêm credit?"
+          }
+        }
+      }
+    },
+    "New listings and ad scripts are written in this language. Listings you already generated keep the language they were written in.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listing và kịch bản quảng cáo mới sẽ được viết bằng ngôn ngữ này. Những listing đã tạo vẫn giữ nguyên ngôn ngữ cũ."
+          }
+        }
+      }
+    },
+    "New product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm mới"
+          }
+        }
+      }
+    },
+    "No hidden products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có sản phẩm nào đã ẩn"
+          }
+        }
+      }
+    },
+    "No issues found in the configured text rules.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không phát hiện vấn đề nào theo các quy tắc nội dung đang áp dụng."
+          }
+        }
+      }
+    },
+    "No photo yet": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có ảnh"
+          }
+        }
+      }
+    },
+    "No preview": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có bản xem trước"
+          }
+        }
+      }
+    },
+    "No product found": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy sản phẩm"
+          }
+        }
+      }
+    },
+    "No products yet": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có sản phẩm nào"
+          }
+        }
+      }
+    },
+    "No scripts yet": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa có kịch bản nào"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để sau"
+          }
+        }
+      }
+    },
+    "Not selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa chọn"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "One photo, four sets of rules.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một tấm ảnh, bốn bộ quy tắc."
+          }
+        }
+      }
+    },
+    "One-time top-up": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nạp thêm một lần"
+          }
+        }
+      }
+    },
+    "Open Studio photos or continue creating your listing whenever you’re ready.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở Ảnh studio hoặc tiếp tục tạo listing bất cứ lúc nào bạn sẵn sàng."
+          }
+        }
+      }
+    },
+    "Options for %@": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuỳ chọn cho %@"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạm dừng"
+          }
+        }
+      }
+    },
+    "Plans and credits": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gói và credit"
+          }
+        }
+      }
+    },
+    "Plans are currently unavailable": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện chưa tải được danh sách gói"
+          }
+        }
+      }
+    },
+    "Play": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phát"
+          }
+        }
+      }
+    },
+    "Preview prices · no purchase will be made.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giá xem trước · chưa thực hiện giao dịch nào."
+          }
+        }
+      }
+    },
+    "Preview unavailable": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không có bản xem trước"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quyền riêng tư"
+          }
+        }
+      }
+    },
+    "Privacy Policy": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chính sách quyền riêng tư"
+          }
+        }
+      }
+    },
+    "Privacy and support": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quyền riêng tư và hỗ trợ"
+          }
+        }
+      }
+    },
+    "Product cutout": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh sản phẩm đã tách nền"
+          }
+        }
+      }
+    },
+    "Product library": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thư viện sản phẩm"
+          }
+        }
+      }
+    },
+    "Product library options": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuỳ chọn thư viện sản phẩm"
+          }
+        }
+      }
+    },
+    "Product with background removed": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm đã tách nền"
+          }
+        }
+      }
+    },
+    "Products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm"
+          }
+        }
+      }
+    },
+    "Products you hide will appear here. You can show them again anytime.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm bạn ẩn sẽ nằm ở đây. Bạn có thể hiện lại bất cứ lúc nào."
+          }
+        }
+      }
+    },
+    "Recommended": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nên chọn"
+          }
+        }
+      }
+    },
+    "Refine cutout": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉnh lại ảnh tách nền"
+          }
+        }
+      }
+    },
+    "Refresh": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải lại"
+          }
+        }
+      }
+    },
+    "Refresh saved photos": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải lại ảnh đã lưu"
+          }
+        }
+      }
+    },
+    "Regenerate scripts": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tạo lại kịch bản"
+          }
+        }
+      }
+    },
+    "Reload saved photos": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải lại ảnh đã lưu"
+          }
+        }
+      }
+    },
+    "Removing background on this device…": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tách nền ngay trên máy…"
+          }
+        }
+      }
+    },
+    "Report": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Báo cáo"
+          }
+        }
+      }
+    },
+    "Report content": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Báo cáo nội dung"
+          }
+        }
+      }
+    },
+    "Report received": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã nhận báo cáo"
+          }
+        }
+      }
+    },
+    "Restore Purchases": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khôi phục giao dịch"
+          }
+        }
+      }
+    },
+    "Resume draft": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục bản nháp"
+          }
+        }
+      }
+    },
+    "Resume listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục listing"
+          }
+        }
+      }
+    },
+    "Resume product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiếp tục sản phẩm"
+          }
+        }
+      }
+    },
+    "Retry credit estimate": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử tính lại credit"
+          }
+        }
+      }
+    },
+    "Retry free check": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử kiểm tra miễn phí lại"
+          }
+        }
+      }
+    },
+    "Retry loading marketplaces": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử tải lại danh sách sàn"
+          }
+        }
+      }
+    },
+    "Retry loading styles": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử tải lại phong cách"
+          }
+        }
+      }
+    },
+    "Retry preview": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử xem trước lại"
+          }
+        }
+      }
+    },
+    "Review": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra"
+          }
+        }
+      }
+    },
+    "Review cutout": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem lại ảnh tách nền"
+          }
+        }
+      }
+    },
+    "Review the checks below.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem các mục kiểm tra bên dưới."
+          }
+        }
+      }
+    },
+    "Rub out anything left over from the background. Erased areas can’t be brought back — retake the photo if too much goes.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tẩy nốt những gì còn sót lại của nền. Phần đã tẩy không khôi phục được — nếu lỡ tay quá nhiều thì hãy chụp lại."
+          }
+        }
+      }
+    },
+    "Rub out what’s left of the background, or take another shot against a plainer surface.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tẩy phần nền còn sót, hoặc chụp lại trên nền đơn giản hơn."
+          }
+        }
+      }
+    },
+    "SAVED PHOTOS": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ẢNH ĐÃ LƯU"
+          }
+        }
+      }
+    },
+    "Save to Photos": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lưu vào Ảnh"
+          }
+        }
+      }
+    },
+    "Saved automatically to this product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự động lưu vào sản phẩm này"
+          }
+        }
+      }
+    },
+    "Script %lld": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kịch bản %lld"
+          }
+        }
+      }
+    },
+    "Select": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn"
+          }
+        }
+      }
+    },
+    "Select all": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn tất cả"
+          }
+        }
+      }
+    },
+    "Selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chọn"
+          }
+        }
+      }
+    },
+    "Send": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cài đặt"
+          }
+        }
+      }
+    },
+    "Short-form video hooks": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook cho video ngắn"
+          }
+        }
+      }
+    },
+    "Show product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện sản phẩm"
+          }
+        }
+      }
+    },
+    "Show products": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện sản phẩm"
+          }
+        }
+      }
+    },
+    "Show selected": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện mục đã chọn"
+          }
+        }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng xuất"
+          }
+        }
+      }
+    },
+    "Sign out": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đăng xuất"
+          }
+        }
+      }
+    },
+    "Skip · continue to listing": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ qua · tiếp tục tới listing"
+          }
+        }
+      }
+    },
+    "Source photo captured · BG removed": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chụp ảnh gốc · đã tách nền"
+          }
+        }
+      }
+    },
+    "Start 7-day free trial": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng thử miễn phí 7 ngày"
+          }
+        }
+      }
+    },
+    "Start a new product?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu sản phẩm mới?"
+          }
+        }
+      }
+    },
+    "Start new product": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bắt đầu sản phẩm mới"
+          }
+        }
+      }
+    },
+    "Start over": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Làm lại từ đầu"
+          }
+        }
+      }
+    },
+    "Stops future AI requests until you allow sharing again. It does not delete content already generated.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dừng mọi yêu cầu AI về sau cho tới khi bạn cho phép lại. Nội dung đã tạo không bị xoá."
+          }
+        }
+      }
+    },
+    "Studio photos": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh studio"
+          }
+        }
+      }
+    },
+    "Studio photos · review image requirements before publishing.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ảnh studio · xem lại yêu cầu về hình ảnh trước khi đăng."
+          }
+        }
+      }
+    },
+    "Style illustration": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hình minh hoạ phong cách"
+          }
+        }
+      }
+    },
+    "Take another shot with a plain, contrasting background.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp lại trên nền đơn sắc, tương phản rõ với sản phẩm."
+          }
+        }
+      }
+    },
+    "Take product photo": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chụp ảnh sản phẩm"
+          }
+        }
+      }
+    },
+    "Terms": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điều khoản"
+          }
+        }
+      }
+    },
+    "Terms of Use": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điều khoản sử dụng"
+          }
+        }
+      }
+    },
+    "Text rule checks are free · no credits used": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểm tra quy tắc nội dung là miễn phí · không tốn credit"
+          }
+        }
+      }
+    },
+    "Thank you. Your report helps us review generated content.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cảm ơn bạn. Báo cáo của bạn giúp chúng tôi rà soát nội dung do AI tạo."
+          }
+        }
+      }
+    },
+    "The generated asset and your explanation will be sent to Listing Force for review.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nội dung đã tạo cùng phần giải thích của bạn sẽ được gửi tới Listing Force để rà soát."
+          }
+        }
+      }
+    },
+    "The products, their captured photos and saved listings will be deleted from your account. This cannot be undone. Photos already exported to your photo library will remain there.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các sản phẩm, ảnh đã chụp và listing đã lưu sẽ bị xoá khỏi tài khoản của bạn. Không thể hoàn tác. Ảnh đã xuất sang thư viện Ảnh của máy vẫn được giữ nguyên."
+          }
+        }
+      }
+    },
+    "This checks your saved title and description. Photos, scripts and tags need a separate review.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mục này kiểm tra tiêu đề và mô tả đã lưu. Ảnh, kịch bản và hashtag cần được kiểm tra riêng."
+          }
+        }
+      }
+    },
+    "This marketplace didn’t finish": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sàn này chưa hoàn tất"
+          }
+        }
+      }
+    },
+    "This photo can’t be edited": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không chỉnh sửa được ảnh này"
+          }
+        }
+      }
+    },
+    "This will remove the unfinished draft from this device.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thao tác này sẽ xoá bản nháp chưa hoàn tất khỏi máy."
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử lại"
+          }
+        }
+      }
+    },
+    "Try another photo": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử ảnh khác"
+          }
+        }
+      }
+    },
+    "Try camera again": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử mở camera lại"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoàn tác"
+          }
+        }
+      }
+    },
+    "Unlock selected marketplaces": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mở khoá các sàn đã chọn"
+          }
+        }
+      }
+    },
+    "Use AI to create your listing?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng AI để tạo listing của bạn?"
+          }
+        }
+      }
+    },
+    "Use this": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng ảnh này"
+          }
+        }
+      }
+    },
+    "Verify & continue": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xác minh và tiếp tục"
+          }
+        }
+      }
+    },
+    "Video scripts": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kịch bản video"
+          }
+        }
+      }
+    },
+    "View plans and credits": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xem gói và credit"
+          }
+        }
+      }
+    },
+    "We check every asset against the rules for each marketplace you pick.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi đối chiếu từng nội dung với quy tắc của mỗi sàn bạn chọn."
+          }
+        }
+      }
+    },
+    "What is wrong with this content?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nội dung này có vấn đề gì?"
+          }
+        }
+      }
+    },
+    "What makes it different?": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Điểm khác biệt là gì?"
+          }
+        }
+      }
+    },
+    "What to review": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cần kiểm tra những gì"
+          }
+        }
+      }
+    },
+    "Withdraw AI data-sharing permission": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rút lại quyền chia sẻ dữ liệu với AI"
+          }
+        }
+      }
+    },
+    "You can decline and keep your product without generating a listing. You can withdraw permission for future requests in Settings.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có thể từ chối và vẫn giữ sản phẩm mà không tạo listing. Bạn có thể rút lại quyền này trong Cài đặt bất cứ lúc nào."
+          }
+        }
+      }
+    },
+    "Your product is saved": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã lưu sản phẩm của bạn"
+          }
+        }
+      }
+    },
+    "Your products will be deleted. This cannot be undone. Cancel any Apple subscription separately in Manage Apple subscriptions.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm của bạn sẽ bị xoá. Không thể hoàn tác. Hãy huỷ gói đăng ký Apple riêng trong mục Quản lý gói đăng ký Apple."
+          }
+        }
+      }
+    },
+    "Your saved copy stays unchanged. Review the cost on the next screen before generating a listing for %@.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nội dung đã lưu của bạn giữ nguyên. Xem chi phí ở màn hình kế tiếp trước khi tạo listing cho %@."
+          }
+        }
+      }
+    },
+    "Your uploaded product and generated photos will remain in Products.": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sản phẩm bạn đã tải lên và ảnh đã tạo vẫn nằm trong mục Sản phẩm."
+          }
+        }
+      }
+    },
+    "or": {
+      "localizations": {
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hoặc"
+          }
+        }
+      }
+    },
+    "·": {
+      "extractionState": "manual",
+      "localizations": {}
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

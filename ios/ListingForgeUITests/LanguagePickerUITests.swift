@@ -52,6 +52,23 @@ final class LanguagePickerUITests: XCTestCase {
                        "The English text is still on screen after switching.")
     }
 
+    /// The sign-in screen is only the first screen. This checks that the rest
+    /// of the app is translated too, using the demo session so no backend or
+    /// real account is involved.
+    @MainActor
+    func testTheSignedInAppIsTranslatedToo() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screen", "settings", "-listing-output-language", "vi"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Ngôn ngữ listing"].waitForExistence(timeout: 10),
+                      "Settings did not render in Vietnamese.")
+        XCTAssertTrue(app.buttons["Xem gói và credit"].exists,
+                      "A Settings button is still in English.")
+        XCTAssertFalse(app.buttons["View plans and credits"].exists,
+                       "The English button is still on screen.")
+    }
+
     @MainActor
     func testTheChoiceSurvivesRelaunch() {
         let app = launchSignedOut(startingIn: "vi")
