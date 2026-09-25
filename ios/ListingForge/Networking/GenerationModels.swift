@@ -69,6 +69,7 @@ struct GenerationFailureDTO: Codable, Hashable {
 struct GenerateRequest: Encodable {
     let marketplaces: [String]
     let scriptCount: Int
+    let language: AppLanguage
     var requestId: UUID = UUID()
 }
 
@@ -76,6 +77,12 @@ struct GenerateResultDTO: Codable, Identifiable {
     var id: String { productId }
 
     let productId: String
+    /// Absent on generations that completed before the field existed. Those
+    /// rows are stored in Postgres and replayed verbatim by the recovery path,
+    /// so a required field here would break recovering an in-flight request
+    /// across the deploy. They were all English.
+    private let language: AppLanguage?
+    var outputLanguage: AppLanguage { language ?? .en }
     let facts: ProductFactsDTO
     let assets: [GeneratedAssetDTO]
     /// Partial success is normal: one marketplace can fail while others land.

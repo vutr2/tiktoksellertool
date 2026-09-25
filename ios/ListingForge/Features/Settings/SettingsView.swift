@@ -18,6 +18,19 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Listing language") {
+                    Picker("Language", selection: Binding(
+                        get: { appEnvironment.language.language },
+                        set: { appEnvironment.language.select($0) }
+                    )) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(language.displayName).tag(language)
+                        }
+                    }
+                    Text("New listings and ad scripts are written in this language. Listings you already generated keep the language they were written in.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("Plans and credits") {
                     Button("View plans and credits") { showingPlans = true }
                     Button("Restore Purchases") { Task { await appEnvironment.billing.restore() } }

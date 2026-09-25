@@ -47,6 +47,29 @@ final class GenerationStore {
         let productID: String
         let marketplaces: [String]
         let scriptCount: Int
+        /// Part of the server's idempotency hash, so a retry must resend the
+        /// language the request was opened with, not whatever Settings says now.
+        let language: AppLanguage
+
+        init(requestId: UUID, productID: String, marketplaces: [String], scriptCount: Int, language: AppLanguage) {
+            self.requestId = requestId
+            self.productID = productID
+            self.marketplaces = marketplaces
+            self.scriptCount = scriptCount
+            self.language = language
+        }
+
+        // Requests already on disk when this shipped were written before the
+        // field existed. Failing to decode them would drop the durable retry
+        // this record exists to provide; they were all English.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            requestId = try container.decode(UUID.self, forKey: .requestId)
+            productID = try container.decode(String.self, forKey: .productID)
+            marketplaces = try container.decode([String].self, forKey: .marketplaces)
+            scriptCount = try container.decode(Int.self, forKey: .scriptCount)
+            language = try container.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .en
+        }
     }
 
     func pendingRequest(productID: String) -> PendingGeneration? {
@@ -139,11 +162,15 @@ final class GenerationStore {
     /// caller that inspects shared state after `await` would see the *previous*
     /// successful run and treat a failed request as a success.
     @discardableResult
-    func generate(productID: String, marketplaces: [String], scriptCount: Int, token: String) async -> GenerateResultDTO? {
+    func generate(productID: String, marketplaces: [String], scriptCount: Int, language: AppLanguage, token: String) async -> GenerateResultDTO? {
         guard !isGenerating, !isInvalidated else { return nil }
         let pending = pendingRequest(productID: productID) ?? PendingGeneration(
-            requestId: UUID(), productID: productID, marketplaces: marketplaces.sorted(), scriptCount: scriptCount)
-        guard pending.marketplaces == marketplaces.sorted(), pending.scriptCount == scriptCount else {
+            requestId: UUID(), productID: productID, marketplaces: marketplaces.sorted(), scriptCount: scriptCount,
+            language: language)
+        // Language is in the server's idempotency hash, so changing it mid-flight
+        // is a new selection, not a retry — the server would answer 409.
+        guard pending.marketplaces == marketplaces.sorted(), pending.scriptCount == scriptCount,
+              pending.language == language else {
             errorMessage = "Check your earlier generation before changing this selection."
             return nil
         }
@@ -165,7 +192,8 @@ final class GenerationStore {
         do {
             let generated: GenerateResultDTO = try await api.post(
                 "api/products/\(productID)/generate",
-                body: GenerateRequest(marketplaces: pending.marketplaces, scriptCount: pending.scriptCount, requestId: pending.requestId),
+                body: GenerateRequest(marketplaces: pending.marketplaces, scriptCount: pending.scriptCount,
+                                      language: pending.language, requestId: pending.requestId),
                 token: token
             )
             guard issued == generateToken else { return nil }

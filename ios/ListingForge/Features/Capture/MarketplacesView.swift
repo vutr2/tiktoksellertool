@@ -259,6 +259,7 @@ struct MarketplacesView: View {
         let store = generation
         let marketplaces = selected.sorted()
         let scripts = scriptCount
+        let language = appEnvironment.language.language
         Task {
             defer { isSubmitting = false }
             // The result is taken from the call, not read back off the store:
@@ -268,6 +269,7 @@ struct MarketplacesView: View {
                 productID: productID,
                 marketplaces: marketplaces,
                 scriptCount: scripts,
+                language: language,
                 token: token
             )
             if let result, appEnvironment.auth.token == token {

@@ -45,15 +45,15 @@ final class ScriptsStore {
         }
     }
 
-    func generate(count: Int = 5, token: String) async {
+    func generate(count: Int = 5, language: AppLanguage, token: String) async {
         guard !isGenerating else { return }
         isGenerating = true
         errorMessage = nil
         defer { isGenerating = false }
-        struct Request: Encodable { let count: Int }
+        struct Request: Encodable { let count: Int; let language: AppLanguage }
         do {
             let response: GenerateResponse = try await api.post(
-                "api/products/\(productID)/scripts", body: Request(count: count), token: token)
+                "api/products/\(productID)/scripts", body: Request(count: count, language: language), token: token)
             scripts = response.scripts
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

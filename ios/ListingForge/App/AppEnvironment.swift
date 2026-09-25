@@ -21,6 +21,9 @@ final class AppEnvironment {
     /// Marketplace selection and generation (design steps 3 and 4).
     private(set) var generation: GenerationStore
     let aiConsent = AIConsent()
+    /// Chosen at sign-in, changed in Settings. Device-level: the picker runs
+    /// before there is an account.
+    let language = LanguagePreference()
     private(set) var captureDraft = CaptureDraftStore()
     private(set) var productProgress = ProductProgressStore()
     private var studioStores: [String: StudioStore] = [:]

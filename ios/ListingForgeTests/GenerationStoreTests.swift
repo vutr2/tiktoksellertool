@@ -62,7 +62,7 @@ struct GenerationStoreTests {
         let store = GenerationStore(api: server.client)
 
         await store.generate(productID: "p1", marketplaces: ["amazon", "tiktok_shop"],
-                             scriptCount: 1, token: "jwt")
+                             scriptCount: 1, language: .en, token: "jwt")
 
         #expect(store.result?.creditsCharged == 6)
         // The balance shown comes from the server's own accounting.
@@ -83,7 +83,7 @@ struct GenerationStoreTests {
             .json(#"{"error":"This needs 6 credits and you have 0.","required":6,"available":0}"#, status: 402))
         let store = GenerationStore(api: server.client)
 
-        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         #expect(store.needsMoreCredits)
         #expect(store.errorMessage == "This needs 6 credits and you have 0.")
@@ -95,7 +95,7 @@ struct GenerationStoreTests {
         let server = StubbedServer(.json(#"{"error":"Generation failed."}"#, status: 500))
         let store = GenerationStore(api: server.client)
 
-        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         #expect(!store.needsMoreCredits)
         #expect(store.errorMessage == "Generation failed.")
@@ -105,7 +105,7 @@ struct GenerationStoreTests {
     func assetsAreGroupedByMarketplace() async {
         let server = StubbedServer(.json(generated))
         let store = GenerationStore(api: server.client)
-        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         #expect(store.assets(for: "amazon").count == 2)
         #expect(store.assets(for: "tiktok_shop").count == 1)
@@ -116,7 +116,7 @@ struct GenerationStoreTests {
     func marketplaceStatusIsTheWorst() async {
         let server = StubbedServer(.json(generated))
         let store = GenerationStore(api: server.client)
-        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         // Amazon has one pass and one warn — showing "pass" would hide the problem.
         #expect(store.status(for: "amazon") == .warn)
@@ -127,7 +127,7 @@ struct GenerationStoreTests {
     func violationsDecode() async throws {
         let server = StubbedServer(.json(generated))
         let store = GenerationStore(api: server.client)
-        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         let description = try #require(store.assets(for: "amazon").first { $0.type == "description" })
         let violation = try #require(description.violations.first)
@@ -144,11 +144,11 @@ struct GenerationStoreTests {
             .json(#"{"error":"This needs 6 credits and you have 0."}"#, status: 402))
         let store = GenerationStore(api: server.client)
 
-        let first = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        let first = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         #expect(first != nil)
         #expect(store.result != nil)
 
-        let second = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        let second = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
 
         #expect(second == nil, "a failed request must not hand back a result")
         #expect(store.result == nil, "the earlier success must not survive a failure")
@@ -167,7 +167,7 @@ struct GenerationStoreTests {
         """
         let server = StubbedServer(.json(withFailure))
         let store = GenerationStore(api: server.client)
-        await store.generate(productID: "p1", marketplaces: ["amazon", "etsy"], scriptCount: 0, token: "jwt")
+        await store.generate(productID: "p1", marketplaces: ["amazon", "etsy"], scriptCount: 0, language: .en, token: "jwt")
 
         #expect(store.status(for: "amazon") == .pass)
         // Reporting green for a marketplace that errored is the worst answer.
@@ -181,8 +181,8 @@ struct GenerationStoreTests {
         let server = StubbedServer(.json(generated), .json(generated))
         let store = GenerationStore(api: server.client)
 
-        async let first = store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
-        async let second = store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        async let first = store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
+        async let second = store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         let results = await [first, second]
 
         // Double-tapping Generate must not charge twice.
@@ -206,7 +206,7 @@ struct GenerationStoreTests {
     func recoverCommittedGeneration() async throws {
         let server = StubbedServer(.transportFailure(URLError(.networkConnectionLost)), .json(generated))
         let store = GenerationStore(api: server.client)
-        let result = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        let result = await store.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         #expect(result?.creditsCharged == 6)
         #expect(server.requests.map(\.method) == ["POST", "GET"])
         let requestID = try #require(server.requests.first?.jsonObject?["requestId"] as? String)
@@ -221,15 +221,15 @@ struct GenerationStoreTests {
         let firstServer = StubbedServer(.transportFailure(URLError(.timedOut)),
             .json(#"{"error":"still running"}"#, status: 409))
         let first = GenerationStore(api: firstServer.client, cacheDirectory: directory)
-        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         let pending = try #require(first.pendingRequest(productID: "p1"))
         let secondServer = StubbedServer(.json(generated))
         let relaunched = GenerationStore(api: secondServer.client, cacheDirectory: directory)
         #expect(relaunched.pendingRequest(productID: "p1")?.requestId == pending.requestId)
-        let changed = await relaunched.generate(productID: "p1", marketplaces: ["etsy"], scriptCount: 0, token: "jwt")
+        let changed = await relaunched.generate(productID: "p1", marketplaces: ["etsy"], scriptCount: 0, language: .en, token: "jwt")
         #expect(changed == nil)
         #expect(secondServer.requests.isEmpty)
-        _ = await relaunched.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        _ = await relaunched.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         #expect(secondServer.lastRequest?.jsonObject?["requestId"] as? String == pending.requestId.uuidString)
         #expect(relaunched.pendingRequest(productID: "p1") == nil)
     }
@@ -241,7 +241,7 @@ struct GenerationStoreTests {
         let firstServer = StubbedServer(.transportFailure(URLError(.timedOut)),
             .json(#"{"error":"still running"}"#, status: 409))
         let first = GenerationStore(api: firstServer.client, cacheDirectory: directory)
-        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, token: "jwt")
+        _ = await first.generate(productID: "p1", marketplaces: ["amazon"], scriptCount: 0, language: .en, token: "jwt")
         let pending = try #require(first.pendingRequest(productID: "p1"))
         let secondServer = StubbedServer(.json(generated))
         let relaunched = GenerationStore(api: secondServer.client, cacheDirectory: directory)

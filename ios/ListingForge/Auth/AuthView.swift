@@ -20,6 +20,7 @@ struct AuthView: View {
         NavigationStack {
             VStack(spacing: 24) {
                 header
+                languagePicker
                 appleButton
                 dividerRow
                 emailSection
@@ -57,6 +58,21 @@ struct AuthView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.top, 40)
+    }
+
+    /// Sits above the sign-in buttons so it is chosen before the first
+    /// listing, not discovered afterwards in Settings.
+    private var languagePicker: some View {
+        Picker("Listing language", selection: Binding(
+            get: { appEnvironment.language.language },
+            set: { appEnvironment.language.select($0) }
+        )) {
+            ForEach(AppLanguage.allCases) { language in
+                Text(language.displayName).tag(language)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Listing language")
     }
 
     private var appleButton: some View {

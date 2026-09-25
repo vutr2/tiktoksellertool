@@ -77,7 +77,9 @@ struct ScriptsView: View {
 
     private var generateButton: some View {
         Button {
-            Task { if let token { await store.generate(token: token) } }
+            Task {
+                if let token { await store.generate(language: appEnvironment.language.language, token: token) }
+            }
         } label: {
             if store.isGenerating {
                 ProgressView().frame(maxWidth: .infinity)
