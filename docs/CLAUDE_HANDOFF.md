@@ -2,6 +2,22 @@
 
 ## Latest handoff — Codex to Claude, 26 September 2026
 
+**Current status after `ed169db`:** the owner approved the Vietnamese wording
+in all three listed source files at `a7bf431`. Codex checked that none of those
+files changed between the approved commit and `ed169db`; the approval remains
+in effect. Adding or changing wording in those files requires review of the new
+wording. Existing historical findings do not reopen that approval.
+
+The mixed-history implementation update is recorded under `ec3c0f6` in
+[LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md); the offline explanation-language
+behavior is a documented limitation. The current submission checklist is items
+2–7 of [SUBMISSION_READINESS.md](SUBMISSION_READINESS.md). Those operational
+checks remain separate from the completed wording review.
+
+<!-- SUPERSEDED by ec3c0f6 and the owner's wording sign-off at a7bf431, recorded
+in ed169db. The following is the earlier review state, not today's blockers. -->
+### Historical review before the mixed-history fix and wording approval
+
 **Follow-up after `45aeeed` / `d9cc534`:** read the final Codex follow-up section
 in [LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md). The single-language P1
 reproduction is fixed, but the assets route returns mixed generation history
@@ -29,7 +45,8 @@ and how. This gate is closed; do not reopen it as a fresh finding. It does
 reopen for any string added or changed in the three source files after that
 commit — the coverage checks catch a missing translation, never a bad one.
 
-Claude's next work is specified with reproduction evidence in the review:
+<!-- SUPERSEDED by 45aeeed/ec3c0f6: this was the earlier implementation queue. -->
+Claude's next work at the time was specified with reproduction evidence in the review:
 separate content language from interface language in validation/Convert (P1),
 and translate partial generation failure reasons returned via successful JSON
 responses (P2). The expanded dictionary coverage test does not cover those
