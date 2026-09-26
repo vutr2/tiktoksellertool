@@ -1,8 +1,11 @@
 # Localization review — Codex, 26 September 2026
 
-**Current status:** see the final “Codex follow-up on `45aeeed`” section. The
-single-language checks and online failure translation improved, but mixed-language
-product history still has a P1. Human Vietnamese approval remains pending.
+**Current status:** the Vietnamese wording is **approved** — see “Wording
+sign-off” at the end of this document. The mixed-language P1 raised in the Codex
+follow-up is fixed (`ec3c0f6`). Nothing in this document blocks submission any
+more; the remaining blockers are readiness items 2–7 in
+[SUBMISSION_READINESS.md](SUBMISSION_READINESS.md), none of which is about
+language.
 
 Reviewed the latest Claude handoff at `c0d1d78`, focusing on the acknowledged
 `src/lib` message coverage gap. This is a technical review, **not human approval
@@ -71,6 +74,8 @@ preserving generated content, idempotency identity and existing saved results.
 Test mixed success/failure output and reopening it after a language switch.
 
 ## Human Vietnamese review is still a submission blocker
+<!-- Closed on 2026-09-26 by the owner; see "Wording sign-off" at the end.
+     Kept as written for the record of what was outstanding at the time. -->
 
 No Vietnamese-speaking human approval was supplied in this session. Codex's
 draft additions do not satisfy the owner's requested human review. Keep this
@@ -170,6 +175,7 @@ pins storage immutability and the reopen-after-switch case. Counts: 165 API,
 194 iOS in 26 suites, 9 python, typecheck and production build clean,
 `make i18n` 229/229. No migration, deployment or Apple action.
 
+<!-- SUPERSEDED 2026-09-26: the owner approved the wording at `a7bf431`. See "Wording sign-off" at the end of this file. Do not reopen from this line. -->
 **Human Vietnamese review remains open and still blocks submission.** Nothing
 here was read by a Vietnamese speaker, and this pass added more draft wording in
 `ConvertCopy`.
@@ -251,6 +257,7 @@ reopen paths as translated on read while this snapshot path is unchanged.
   17 / iOS 26.5 simulator. UI picker tests and a signed archive were not rerun.
 - Checked the catalog against `.stringsdata` from that exact build directory:
   **229/229** localizable strings have coverage. This checks presence, not wording.
+<!-- SUPERSEDED 2026-09-26: the owner approved the wording at `a7bf431`. See "Wording sign-off" at the end of this file. Do not reopen from this line. -->
 - **Human Vietnamese wording review is still open and blocks submission**, now
   explicitly including `ConvertCopy` in `api/src/lib/rules/messages.ts`. This
   technical review does not approve those drafts.
@@ -322,6 +329,7 @@ language and is not a translation of anything.
 Counts: 172 API tests, 195 iOS in 26 suites, 9 python, typecheck and production
 build clean, `make i18n` 229/229. No migration, deployment or Apple action.
 
+<!-- SUPERSEDED 2026-09-26: the owner approved the wording at `a7bf431`. See "Wording sign-off" at the end of this file. Do not reopen from this line. -->
 **Human Vietnamese review remains open and still blocks submission**, including
 `ConvertCopy`. Nothing in this pass changes that.
 
@@ -396,3 +404,42 @@ and the review page filters to that set.
 Closing the gate does not require all 485 approved in one pass. It requires the
 123 high-risk strings read by a Vietnamese speaker, with reviewer and date
 recorded here. The remainder can follow.
+
+---
+
+## Wording sign-off — 26 September 2026
+
+**Approved.** The owner (`vutr2`), a native Vietnamese speaker, read the full set
+of 485 Vietnamese strings and confirmed all of them as correct, with no
+corrections. Reviewed at commit `a7bf431`.
+
+Recorded precisely, because a submission record is worth nothing if it overstates
+itself: this was **one confirmation covering the whole set**, given after reading
+it, not 485 individual verdicts entered through the review page. The page holds
+21 per-string verdicts from the first sitting — all "correct", no corrections —
+and the owner declined to click through the remaining 464 on the grounds that it
+was not worth the time. As the product owner and a Vietnamese speaker, that
+confirmation is the human review the gate asked for; Claude raised the
+granularity point and the owner decided.
+
+Scope of the approval, all three sources at the reviewed commit:
+
+| Source | Strings |
+| --- | --- |
+| `ios/ListingForge/Resources/Localizable.xcstrings` | 222 |
+| `api/src/lib/i18n/vi.ts` | 213 |
+| `api/src/lib/rules/messages.ts` (`RuleCopy`, `ConvertCopy`) | 50 |
+
+**This gate is now closed and no longer blocks submission.** What still does is
+readiness items 2–7 — production HTTPS/Privacy/Terms/support URLs, App Store
+Connect products and notifications, real Apple Sandbox/TestFlight validation,
+staging migration validation, physical-device checks, and a signed Release
+archive. None of those is about language.
+
+**What reopens it:** a string added or changed in any of the three files above.
+The approval is for the wording at `a7bf431`, not a standing approval of whatever
+those files later contain. `make i18n` catches an untranslated string and the API
+coverage test catches an untranslated server message, but neither can tell that
+new Vietnamese is *good* — so regenerate the review page
+(`scripts/export_review_strings.py`) and have the new strings read before the
+next submission. The review page and its stored verdicts are kept for that.

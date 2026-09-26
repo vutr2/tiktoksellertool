@@ -21,9 +21,13 @@ and 82 missing exact translations plus dynamic message translations were added.
 Typecheck, 154 API tests and the production build pass. No Swift changes or
 remote push/deployment were made in this pass.
 
-**Vietnamese wording still requires human review before submission.** These
-additional translations are also drafts. Do not equate Codex's technical review
-with a Vietnamese-speaking person's approval of privacy, consent or other copy.
+**Vietnamese wording was approved by the owner on 2026-09-26** — a native
+Vietnamese speaker — covering all 485 strings at commit `a7bf431`, with no
+corrections. See "Wording sign-off" at the end of
+[LOCALIZATION_REVIEW.md](LOCALIZATION_REVIEW.md) for exactly what was approved
+and how. This gate is closed; do not reopen it as a fresh finding. It does
+reopen for any string added or changed in the three source files after that
+commit — the coverage checks catch a missing translation, never a bad one.
 
 Claude's next work is specified with reproduction evidence in the review:
 separate content language from interface language in validation/Convert (P1),

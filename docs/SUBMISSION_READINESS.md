@@ -12,6 +12,7 @@ Status: implementation and local validation in progress. This is not an App Revi
 - Apple SDK verification, environment-scoped transaction IDs, idempotent grants, monthly annual-plan periods, once-per-account introductory credits, attributed spending, refunds and refund reversals, stale notification guards and immutable ledger rows. Existing administrative credits remain spendable. New account creation no longer grants an unverified trial.
 - Release builds reject missing/non-public API, privacy, support and terms URLs. Camera configuration/capture/start/stop/metering share one serial hardware queue.
 - Backend PostCSS patched within major version 8; npm audit reports zero vulnerabilities at this review.
+- English and Vietnamese throughout: the app's interface, the server's seller-facing messages and the generated listing copy each follow the seller's chosen language, with the content language kept separate from the interface language so a language switch can never make unchecked copy report as clean. The Vietnamese wording was approved by the owner on 2026-09-26; see LOCALIZATION_REVIEW.md for the sign-off and what reopens it.
 
 ## Local validation
 
