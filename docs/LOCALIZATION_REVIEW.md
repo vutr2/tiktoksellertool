@@ -378,3 +378,21 @@ no Vietnamese speaker has read these strings yet, and the gate stays closed
 until one has. When corrections come back they are applied to the three source
 files above, and `make i18n` plus the API coverage tests still have to pass
 afterwards.
+
+### Progress, and which strings come first
+
+Recorded so far: **21 of 485**, all marked correct, no corrections proposed —
+Gói & credit complete (10/10), Studio 10/17, Trình phát kịch bản 1/2. The
+remaining 464 have not been read by anyone. Treating 21 as a review of 485 is
+exactly what this gate exists to prevent, so the count stays as it is.
+
+**123 strings are flagged high risk** and reviewed first: anything naming
+credits, charges, subscriptions, refunds, account deletion, AI consent, privacy,
+terms or how to retry. A mistranslation in those costs the seller money, data or
+their account; a wrong verb on a Studio filter costs a shrug. The rule lives in
+`high_risk()` in the exporter, so it is regenerated rather than hand-maintained,
+and the review page filters to that set.
+
+Closing the gate does not require all 485 approved in one pass. It requires the
+123 high-risk strings read by a Vietnamese speaker, with reviewer and date
+recorded here. The remainder can follow.

@@ -40,6 +40,20 @@ SCREENS = {
     "AIConsent": "Đồng ý dùng AI", "RootView": "Màn gốc", "MainTabView": "Thanh tab",
     "DemoMode": "Demo (chỉ DEBUG)", "VideoScriptTimeline": "Dòng thời gian kịch bản",
 }
+# Wording where a mistranslation costs the seller money, data or their account:
+# credits and charges, subscriptions, deletion, AI consent, and how to retry.
+# Reviewed first, so the riskiest sentences stop blocking submission soonest.
+HIGH_RISK_GROUPS = {"Đồng ý dùng AI", "Credit & thanh toán", "Tài khoản", "Gói & credit"}
+HIGH_RISK_WORDS = re.compile(
+    r"\b(consent|permission|delete|deletion|deleted|refund|purchase|purchases|"
+    r"subscription|subscribe|renew|credit|credits|charge|charged|billed|billing|"
+    r"cancel|canceled|restore|trial|retry|retried|privacy|terms|report)\b", re.I)
+
+
+def high_risk(row: dict) -> bool:
+    return row["group"] in HIGH_RISK_GROUPS or bool(HIGH_RISK_WORDS.search(row["en"]))
+
+
 SERVER_SECTIONS = {
     "Authentication and session": "Đăng nhập & phiên", "Account": "Tài khoản",
     "Products": "Sản phẩm", "Capture and upload": "Chụp & tải ảnh",
@@ -126,6 +140,8 @@ def main() -> int:
     args = parser.parse_args()
 
     rows = interface_strings(args.objects) + server_strings() + builder_strings()
+    for row in rows:
+        row["pri"] = 1 if high_risk(row) else 0
     ids = {r["id"] for r in rows}
     if len(ids) != len(rows):
         print("id collision: two strings would share a review slot", file=sys.stderr)
@@ -139,6 +155,7 @@ def main() -> int:
     print(f"{len(rows)} strings → {args.out}")
     for surface, n in sorted(counts.items()):
         print(f"  {surface}: {n}")
+    print(f"  high risk: {sum(r['pri'] for r in rows)}")
     return 0
 
 

@@ -179,6 +179,11 @@
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 10.5px; letter-spacing: .02em; color: var(--faint);
   }
+  .src .pri {
+    display: inline-block; margin-right: 7px; padding: 1px 6px; border-radius: 4px;
+    background: var(--pen-soft); color: var(--pen); font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; font-size: 9.5px;
+  }
   .en {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 12.5px; color: var(--muted); margin: 0;
@@ -238,6 +243,11 @@
       485 câu tiếng Việt trong app và trên server, <strong>do Claude viết và chưa ai đọc lại</strong>.
       Mỗi câu có bản tiếng Anh gốc bên trên để đối chiếu. Đánh “Đúng” nếu dùng được,
       hoặc “Cần sửa” rồi viết lại câu bạn muốn. Mọi thứ lưu ngay, đóng trang rồi mở lại vẫn còn.
+    </p>
+    <p class="lede" style="margin-top:10px">
+      123 câu được đánh <strong>ưu tiên cao</strong>: những câu nói về credit, thanh toán, gói đăng ký,
+      xoá tài khoản, quyền dùng AI và cách thử lại. Dịch sai một câu ở đây là người bán mất tiền,
+      mất dữ liệu hoặc mất tài khoản — nên duyệt nhóm này trước.
     </p>
 
     <div class="glossary">
@@ -304,7 +314,8 @@
     { key: "all", label: "Mọi trạng thái" },
     { key: "todo", label: "Chưa xem" },
     { key: "fix", label: "Cần sửa" },
-    { key: "ok", label: "Đã duyệt" }
+    { key: "ok", label: "Đã duyệt" },
+    { key: "pri", label: "Ưu tiên cao" }
   ];
 
   var ui = { surface: "all", filter: "all", q: "" };
@@ -378,6 +389,7 @@
       if (ui.filter === "todo" && s) return false;
       if (ui.filter === "fix" && s !== "fix") return false;
       if (ui.filter === "ok" && s !== "ok") return false;
+      if (ui.filter === "pri" && !r.pri) return false;
       if (ui.q) {
         var hay = (r.en + "\n" + r.vi + "\n" + r.group).toLowerCase();
         if (hay.indexOf(ui.q) === -1) return false;
@@ -410,7 +422,13 @@
 
     var src = document.createElement("p");
     src.className = "src";
-    src.textContent = r.src;
+    if (r.pri) {
+      var tag = document.createElement("span");
+      tag.className = "pri";
+      tag.textContent = "ưu tiên cao";
+      src.appendChild(tag);
+    }
+    src.appendChild(document.createTextNode(r.src));
     li.appendChild(src);
 
     var text = document.createElement("div");
