@@ -1,0 +1,616 @@
+<title>Duyệt tiếng Việt ListingForge</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f5f6f9;
+    --surface: #ffffff;
+    --surface-sunk: #eef0f5;
+    --line: #dfe3ea;
+    --line-soft: #ecEFF4;
+    --ink: #141821;
+    --muted: #5b6475;
+    --faint: #8b93a4;
+    --accent: #2e4585;
+    --accent-soft: #e8ecf7;
+    --pen: #b32430;
+    --pen-soft: #fbeaec;
+    --ok: #1d6b4a;
+    --ok-soft: #e7f2ec;
+    --shadow: 0 1px 2px rgba(20, 24, 33, .05);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1218;
+      --surface: #171b23;
+      --surface-sunk: #1f242e;
+      --line: #2a303c;
+      --line-soft: #232834;
+      --ink: #e7eaf1;
+      --muted: #96a0b3;
+      --faint: #6f7889;
+      --accent: #93a8ea;
+      --accent-soft: #1e2740;
+      --pen: #e8737d;
+      --pen-soft: #332024;
+      --ok: #62c091;
+      --ok-soft: #16281f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1218;
+    --surface: #171b23;
+    --surface-sunk: #1f242e;
+    --line: #2a303c;
+    --line-soft: #232834;
+    --ink: #e7eaf1;
+    --muted: #96a0b3;
+    --faint: #6f7889;
+    --accent: #93a8ea;
+    --accent-soft: #1e2740;
+    --pen: #e8737d;
+    --pen-soft: #332024;
+    --ok: #62c091;
+    --ok-soft: #16281f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding-inline: 18px; padding-block: 0 72px; }
+
+  /* ── Masthead ───────────────────────────────────────────────────────── */
+  header.masthead { padding-block: 40px 22px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--faint); margin: 0 0 12px;
+  }
+  h1 {
+    font-size: clamp(27px, 5vw, 38px); font-weight: 700; line-height: 1.12;
+    letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--muted); max-width: 62ch; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Glossary ───────────────────────────────────────────────────────── */
+  .glossary {
+    margin-top: 24px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .glossary h2 {
+    font-size: 11px; font-family: "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--faint);
+    margin: 0 0 4px; font-weight: 500;
+  }
+  .glossary p { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+  .terms { display: flex; flex-wrap: wrap; gap: 8px 10px; list-style: none; margin: 0; padding: 0; }
+  .terms li {
+    font-size: 13px; background: var(--surface-sunk); border-radius: 6px;
+    padding: 4px 9px; color: var(--ink);
+  }
+  .terms code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; color: var(--muted);
+  }
+
+  /* ── Sticky toolbar ─────────────────────────────────────────────────── */
+  .toolbar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    background: var(--ground);
+    background: color-mix(in srgb, var(--ground) 92%, transparent);
+    backdrop-filter: blur(9px);
+    border-bottom: 1px solid var(--line);
+    margin-top: 26px; padding-block: 12px;
+  }
+  .meter { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; }
+  .meter .count {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500;
+    font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  .meter .of { font-size: 13px; color: var(--faint); }
+  .meter .save {
+    margin-left: auto; font-size: 12px; color: var(--faint);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .bar { height: 5px; background: var(--surface-sunk); border-radius: 3px; overflow: hidden; display: flex; }
+  .bar span { display: block; height: 100%; transition: width .25s ease; }
+  .bar .b-ok { background: var(--ok); }
+  .bar .b-fix { background: var(--pen); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  button.chip {
+    font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    cursor: pointer; white-space: nowrap;
+  }
+  button.chip[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500;
+  }
+  :root[data-theme="dark"] button.chip[aria-pressed="true"] { color: #10131a; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) button.chip[aria-pressed="true"] { color: #10131a; }
+  }
+  button.chip:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .search {
+    flex: 1 1 190px; min-width: 0; font: inherit; font-size: 13.5px;
+    padding: 6px 11px; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink);
+  }
+
+  /* ── Sections ───────────────────────────────────────────────────────── */
+  section.group { margin-top: 30px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 9px;
+    padding-bottom: 7px; border-bottom: 2px solid var(--ink);
+  }
+  .group-head h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .group-head .n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+    color: var(--faint); font-variant-numeric: tabular-nums; margin-left: auto;
+  }
+  .rows { list-style: none; margin: 0; padding: 0; }
+
+  /* ── One string ─────────────────────────────────────────────────────── */
+  li.row {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 16px;
+    align-items: start; padding: 14px 0 14px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    border-left: 3px solid transparent;
+  }
+  li.row[data-status="fix"] { border-left-color: var(--pen); background: var(--pen-soft); }
+  li.row[data-status="ok"] { border-left-color: var(--ok); }
+  .src {
+    grid-column: 1 / -1;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: .02em; color: var(--faint);
+  }
+  .en {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px; color: var(--muted); margin: 0;
+    overflow-wrap: anywhere; white-space: pre-wrap;
+  }
+  .vi {
+    font-size: 16px; font-weight: 500; margin: 3px 0 0; color: var(--ink);
+    overflow-wrap: anywhere; white-space: pre-wrap;
+  }
+  .verdict { grid-row: 2 / span 2; display: flex; gap: 5px; }
+  .verdict button {
+    font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    cursor: pointer; white-space: nowrap;
+  }
+  .verdict button[aria-pressed="true"][data-v="ok"] {
+    background: var(--ok-soft); border-color: var(--ok); color: var(--ok); font-weight: 600;
+  }
+  .verdict button[aria-pressed="true"][data-v="fix"] {
+    background: var(--surface); border-color: var(--pen); color: var(--pen); font-weight: 600;
+  }
+  .fixbox { grid-column: 1 / -1; margin-top: 9px; }
+  .fixbox label {
+    display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--pen); font-weight: 600; margin-bottom: 4px;
+  }
+  .fixbox textarea {
+    width: 100%; font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 7px;
+    border: 1px solid var(--pen); background: var(--surface); color: var(--ink);
+    resize: vertical; min-height: 62px;
+  }
+  .fixbox .hint { font-size: 12px; color: var(--muted); margin: 5px 0 0; }
+
+  .empty { margin-top: 34px; padding: 26px; text-align: center; color: var(--muted);
+           background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+  .notice {
+    margin-top: 20px; padding: 13px 15px; border-radius: 9px; font-size: 13.5px;
+    background: var(--accent-soft); color: var(--ink); border: 1px solid var(--accent);
+  }
+  footer.foot {
+    margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--muted);
+  }
+  footer.foot code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; }
+  @media (max-width: 560px) {
+    li.row { grid-template-columns: 1fr; }
+    .verdict { grid-row: auto; margin-top: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">ListingForge · bản duyệt câu chữ</p>
+    <h1>Duyệt tiếng Việt trước khi submit</h1>
+    <p class="lede">
+      485 câu tiếng Việt trong app và trên server, <strong>do Claude viết và chưa ai đọc lại</strong>.
+      Mỗi câu có bản tiếng Anh gốc bên trên để đối chiếu. Đánh “Đúng” nếu dùng được,
+      hoặc “Cần sửa” rồi viết lại câu bạn muốn. Mọi thứ lưu ngay, đóng trang rồi mở lại vẫn còn.
+    </p>
+
+    <div class="glossary">
+      <h2>Thuật ngữ đã chốt</h2>
+      <p>Đổi một từ ở đây là đổi ở tất cả các câu — nên xem qua trước khi sửa từng dòng.</p>
+      <ul class="terms">
+        <li>marketplace → <strong>sàn</strong></li>
+        <li>listing → <strong>listing</strong> <code>giữ nguyên</code></li>
+        <li>cutout → <strong>ảnh tách nền</strong></li>
+        <li>angle → <strong>góc chụp</strong></li>
+        <li>credits → <strong>credit</strong></li>
+        <li>script → <strong>kịch bản</strong></li>
+        <li>Studio photos → <strong>ảnh studio</strong></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="meter">
+      <span class="count" id="m-count">0</span>
+      <span class="of">/ <span id="m-total">0</span> câu đã xem · <span id="m-fix">0</span> cần sửa</span>
+      <span class="save" id="m-save"></span>
+    </div>
+    <div class="bar" aria-hidden="true">
+      <span class="b-ok" id="bar-ok" style="width:0%"></span>
+      <span class="b-fix" id="bar-fix" style="width:0%"></span>
+    </div>
+    <div class="controls">
+      <div class="chips" id="surfaces" role="group" aria-label="Chọn phần"></div>
+      <div class="chips" id="filters" role="group" aria-label="Lọc theo trạng thái"></div>
+      <input class="search" id="q" type="search" placeholder="Tìm trong câu tiếng Anh hoặc tiếng Việt…"
+             aria-label="Tìm câu">
+    </div>
+  </div>
+
+  <div id="notice" class="notice" hidden></div>
+  <div id="list"></div>
+  <p class="empty" id="empty" hidden>Không có câu nào khớp bộ lọc này.</p>
+
+  <footer class="foot">
+    <p>
+      Nguồn: <code>Localizable.xcstrings</code> (giao diện app),
+      <code>api/src/lib/i18n/vi.ts</code> (thông báo server),
+      <code>api/src/lib/rules/messages.ts</code> (lỗi vi phạm và mô tả khi Convert —
+      các câu này được dựng từ hàm, nên ở đây là câu thật với số liệu ví dụ).
+    </p>
+    <p>Chưa duyệt xong thì chưa submit lên App Store.</p>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var ROWS = window.LF_STRINGS || [];
+  var SURFACES = [
+    { key: "all", label: "Tất cả" },
+    { key: "app", label: "Giao diện app" },
+    { key: "server", label: "Thông báo server" },
+    { key: "rules", label: "Quy tắc & Convert" }
+  ];
+  var FILTERS = [
+    { key: "all", label: "Mọi trạng thái" },
+    { key: "todo", label: "Chưa xem" },
+    { key: "fix", label: "Cần sửa" },
+    { key: "ok", label: "Đã duyệt" }
+  ];
+
+  var ui = { surface: "all", filter: "all", q: "" };
+  var state = Object.create(null);   // id -> {status, correction}
+  var db = null;
+  var writable = true;
+  var pending = Object.create(null); // group slug -> timer
+  var seen = Object.create(null);    // group slug -> doc exists
+
+  // Group slug: a db document id, so keep it inside the path grammar.
+  function slug(row) {
+    return row.surface + "-" + String(row.group).toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 40);
+  }
+  ROWS.forEach(function (r) { r.slug = slug(r); });
+
+  var el = {
+    list: document.getElementById("list"),
+    empty: document.getElementById("empty"),
+    notice: document.getElementById("notice"),
+    count: document.getElementById("m-count"),
+    total: document.getElementById("m-total"),
+    fix: document.getElementById("m-fix"),
+    save: document.getElementById("m-save"),
+    barOk: document.getElementById("bar-ok"),
+    barFix: document.getElementById("bar-fix"),
+    surfaces: document.getElementById("surfaces"),
+    filters: document.getElementById("filters"),
+    q: document.getElementById("q")
+  };
+  el.total.textContent = String(ROWS.length);
+
+  function note(text) { el.notice.textContent = text; el.notice.hidden = !text; }
+  function saveHint(text) { el.save.textContent = text || ""; }
+
+  // ── Chips ────────────────────────────────────────────────────────────
+  function chips(host, items, get, set) {
+    items.forEach(function (item) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = item.label;
+      b.setAttribute("aria-pressed", String(get() === item.key));
+      b.addEventListener("click", function () {
+        set(item.key);
+        Array.prototype.forEach.call(host.children, function (c) {
+          c.setAttribute("aria-pressed", String(c === b));
+        });
+        render();
+      });
+      host.appendChild(b);
+    });
+  }
+  chips(el.surfaces, SURFACES, function () { return ui.surface; }, function (v) { ui.surface = v; });
+  chips(el.filters, FILTERS, function () { return ui.filter; }, function (v) { ui.filter = v; });
+
+  var qTimer = null;
+  el.q.addEventListener("input", function () {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(function () { ui.q = el.q.value.trim().toLowerCase(); render(); }, 140);
+  });
+
+  // ── Filtering ────────────────────────────────────────────────────────
+  function statusOf(id) { return (state[id] && state[id].status) || ""; }
+
+  function visible() {
+    return ROWS.filter(function (r) {
+      if (ui.surface !== "all" && r.surface !== ui.surface) return false;
+      var s = statusOf(r.id);
+      if (ui.filter === "todo" && s) return false;
+      if (ui.filter === "fix" && s !== "fix") return false;
+      if (ui.filter === "ok" && s !== "ok") return false;
+      if (ui.q) {
+        var hay = (r.en + "\n" + r.vi + "\n" + r.group).toLowerCase();
+        if (hay.indexOf(ui.q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  // ── Meter ────────────────────────────────────────────────────────────
+  function meter() {
+    var ok = 0, fix = 0;
+    ROWS.forEach(function (r) {
+      var s = statusOf(r.id);
+      if (s === "ok") ok++; else if (s === "fix") fix++;
+    });
+    el.count.textContent = String(ok + fix);
+    el.fix.textContent = String(fix);
+    var n = ROWS.length || 1;
+    el.barOk.style.width = (ok / n * 100).toFixed(2) + "%";
+    el.barFix.style.width = (fix / n * 100).toFixed(2) + "%";
+  }
+
+  // ── Rendering ────────────────────────────────────────────────────────
+  function rowNode(r) {
+    var li = document.createElement("li");
+    li.className = "row";
+    li.dataset.id = r.id;
+    var s = statusOf(r.id);
+    if (s) li.dataset.status = s;
+
+    var src = document.createElement("p");
+    src.className = "src";
+    src.textContent = r.src;
+    li.appendChild(src);
+
+    var text = document.createElement("div");
+    var en = document.createElement("p");
+    en.className = "en";
+    en.textContent = r.en;
+    var vi = document.createElement("p");
+    vi.className = "vi";
+    vi.lang = "vi";
+    vi.textContent = r.vi;
+    text.appendChild(en);
+    text.appendChild(vi);
+    li.appendChild(text);
+
+    var verdict = document.createElement("div");
+    verdict.className = "verdict";
+    [["ok", "Đúng"], ["fix", "Cần sửa"]].forEach(function (pair) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.dataset.v = pair[0];
+      b.textContent = pair[1];
+      b.setAttribute("aria-pressed", String(s === pair[0]));
+      if (!writable) b.disabled = true;
+      b.addEventListener("click", function () { choose(r, s === pair[0] ? "" : pair[0]); });
+      verdict.appendChild(b);
+    });
+    li.appendChild(verdict);
+
+    if (s === "fix") {
+      var box = document.createElement("div");
+      box.className = "fixbox";
+      var label = document.createElement("label");
+      label.htmlFor = "fix-" + r.id;
+      label.textContent = "Câu bạn muốn dùng";
+      var ta = document.createElement("textarea");
+      ta.id = "fix-" + r.id;
+      ta.lang = "vi";
+      ta.value = (state[r.id] && state[r.id].correction) || "";
+      ta.placeholder = "Viết lại câu ở đây. Để trống nếu chỉ muốn đánh dấu là cần xem lại.";
+      if (!writable) ta.disabled = true;
+      var t = null;
+      ta.addEventListener("input", function () {
+        clearTimeout(t);
+        t = setTimeout(function () { correct(r, ta.value); }, 500);
+      });
+      ta.addEventListener("blur", function () { clearTimeout(t); correct(r, ta.value); });
+      var hint = document.createElement("p");
+      hint.className = "hint";
+      hint.textContent = "Giữ nguyên các chỗ như %@, %lld và \\n — chúng là số liệu và dấu xuống dòng app chèn vào.";
+      box.appendChild(label);
+      box.appendChild(ta);
+      box.appendChild(hint);
+      li.appendChild(box);
+    }
+    return li;
+  }
+
+  function render() {
+    var rows = visible();
+    el.list.textContent = "";
+    el.empty.hidden = rows.length > 0;
+
+    var order = [], byGroup = Object.create(null);
+    rows.forEach(function (r) {
+      if (!byGroup[r.slug]) { byGroup[r.slug] = { label: r.group, rows: [] }; order.push(r.slug); }
+      byGroup[r.slug].rows.push(r);
+    });
+
+    order.forEach(function (key) {
+      var g = byGroup[key];
+      var sec = document.createElement("section");
+      sec.className = "group";
+      var head = document.createElement("div");
+      head.className = "group-head";
+      var h = document.createElement("h3");
+      h.textContent = g.label;
+      var n = document.createElement("span");
+      n.className = "n";
+      var done = g.rows.filter(function (r) { return statusOf(r.id); }).length;
+      n.textContent = done + "/" + g.rows.length;
+      head.appendChild(h);
+      head.appendChild(n);
+      var ul = document.createElement("ul");
+      ul.className = "rows";
+      g.rows.forEach(function (r) { ul.appendChild(rowNode(r)); });
+      sec.appendChild(head);
+      sec.appendChild(ul);
+      el.list.appendChild(sec);
+    });
+    meter();
+  }
+
+  // ── Writing ──────────────────────────────────────────────────────────
+  function choose(r, status) {
+    var entry = state[r.id] || {};
+    if (!status) delete state[r.id];
+    else state[r.id] = { status: status, correction: entry.correction || "" };
+    render();
+    if (status === "fix") {
+      var ta = document.getElementById("fix-" + r.id);
+      if (ta) ta.focus();
+    }
+    queue(r.slug);
+  }
+
+  function correct(r, text) {
+    var entry = state[r.id];
+    if (!entry || entry.correction === text) return;
+    entry.correction = text;
+    queue(r.slug);
+  }
+
+  function entriesFor(groupSlug) {
+    var out = Object.create(null);
+    ROWS.forEach(function (r) {
+      if (r.slug !== groupSlug) return;
+      var e = state[r.id];
+      if (!e) return;
+      out[r.id] = { status: e.status, correction: e.correction || "", en: r.en, draft: r.vi };
+    });
+    return out;
+  }
+
+  // Coalesce a burst of edits into one write per group. Nested merge keeps two
+  // reviewers in the same group from overwriting each other's rows.
+  function queue(groupSlug) {
+    if (!db || !writable) return;
+    clearTimeout(pending[groupSlug]);
+    saveHint("đang lưu…");
+    pending[groupSlug] = setTimeout(function () { flush(groupSlug); }, 450);
+  }
+
+  function flush(groupSlug) {
+    var body = { entries: entriesFor(groupSlug), updatedAt: new Date().toISOString() };
+    var ref = db.doc("reviews/" + groupSlug);
+    // `update` merges, so a sibling row someone else wrote survives. It needs
+    // the document to exist, so the first write for a group is a `set`.
+    var write = seen[groupSlug]
+      ? ref.update(body).catch(function (e) {
+          if (e && e.code === "invalid_argument") return ref.set(body);
+          throw e;
+        })
+      : ref.set(body);
+    write.then(function () {
+      seen[groupSlug] = true;
+      saveHint("đã lưu");
+    }).catch(function (e) {
+      var code = e && e.code;
+      if (code === "not_granted" || code === "revoked" || code === "invalid_argument") {
+        writable = false;
+        note("Bạn đang xem ở chế độ chỉ đọc — không lưu được đánh giá. Nhờ chủ sở hữu cấp quyền Contributor trở lên.");
+        render();
+        return;
+      }
+      saveHint("chưa lưu được, thử lại sau");
+    });
+  }
+
+  // A deleted row leaves nothing behind, so a full state rebuild from the
+  // store is what a snapshot means.
+  function applySnapshot(snap) {
+    var next = Object.create(null);
+    snap.docs.forEach(function (doc) {
+      seen[doc.id] = true;
+      var data = doc.data() || {};
+      var entries = data.entries || {};
+      Object.keys(entries).forEach(function (id) {
+        var e = entries[id] || {};
+        if (e.status === "ok" || e.status === "fix") {
+          next[id] = { status: e.status, correction: typeof e.correction === "string" ? e.correction : "" };
+        }
+      });
+    });
+    // Keep whatever this viewer is mid-typing rather than yanking it away.
+    var focused = document.activeElement;
+    var typingId = focused && focused.id && focused.id.indexOf("fix-") === 0 ? focused.id.slice(4) : null;
+    if (typingId && state[typingId]) next[typingId] = state[typingId];
+    state = next;
+    if (typingId) { meter(); return; }
+    render();
+  }
+
+  render();
+
+  if (!window.claude || typeof window.claude.use !== "function") {
+    note("Trang này chưa kết nối được nơi lưu đánh giá. Bạn vẫn đọc được toàn bộ câu chữ.");
+  } else {
+    window.claude.use("db").then(function (store) {
+      if (!store) {
+        note("Trang này chưa kết nối được nơi lưu đánh giá. Bạn vẫn đọc được toàn bộ câu chữ.");
+        return;
+      }
+      db = store;
+      store.collection("reviews").onSnapshot(applySnapshot, function (e) {
+        note("Mất kết nối tới nơi lưu đánh giá (" + ((e && e.code) || "unavailable") +
+             "). Tải lại trang để thử lại.");
+      });
+    }).catch(function () {
+      note("Trang này chưa kết nối được nơi lưu đánh giá. Bạn vẫn đọc được toàn bộ câu chữ.");
+    });
+  }
+})();
+</script>

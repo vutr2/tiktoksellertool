@@ -324,3 +324,57 @@ build clean, `make i18n` 229/229. No migration, deployment or Apple action.
 
 **Human Vietnamese review remains open and still blocks submission**, including
 `ConvertCopy`. Nothing in this pass changes that.
+
+---
+
+## Claude — the wording review now has a tool, 26 September 2026
+
+The one blocker nobody else was holding. Every Vietnamese string a seller can
+read is collected into a single reviewable list, so the gate can actually be
+worked through instead of only being flagged.
+
+**485 strings**, from all three sources at once:
+
+| Source | Strings |
+| --- | --- |
+| `Localizable.xcstrings` — the app's interface | 222 |
+| `api/src/lib/i18n/vi.ts` — server messages | 213 |
+| `api/src/lib/rules/messages.ts` — rule violations and Convert changes | 50 |
+
+The third group are functions, not literals. They are **rendered into real
+sentences with example figures**, because nobody can review `titleTooLong` —
+only "Amazon chỉ cho phép 200 ký tự trong tiêu đề."
+
+Each row shows the English source above the Vietnamese draft, with the file it
+came from. A reviewer marks it correct or proposes a replacement, and the
+verdicts persist so the review can be done in sittings by more than one person.
+The agreed terminology sits at the top, because disagreeing with one term means
+changing every occurrence — that is worth settling before line edits.
+
+### Regenerating it
+
+`scripts/export_review_strings.py` rebuilds the data; run it whenever the
+wording changes so the page stops being a snapshot that quietly goes stale.
+
+```sh
+python3 scripts/export_review_strings.py --out docs/review/data.js \
+  --objects "$(dirname "$(find "$HOME/Library/Developer/Xcode/DerivedData" \
+    -name 'AuthView.stringsdata' -path '*Debug-iphonesimulator*' \
+    | grep -v Index.noindex | head -1)")"
+```
+
+`--objects` is optional and only groups interface strings by the screen they
+appear on, read from the `.stringsdata` a build emits. A builder added to
+`RuleCopy` with no example arguments **fails the export** rather than being
+skipped, so the review cannot silently lose a message.
+
+The page's source is kept at `docs/review/` so it is reproducible from the repo
+rather than existing only as a published page.
+
+### What this does and does not settle
+
+It makes the review possible and records its results. It is **not** the review:
+no Vietnamese speaker has read these strings yet, and the gate stays closed
+until one has. When corrections come back they are applied to the three source
+files above, and `make i18n` plus the API coverage tests still have to pass
+afterwards.
