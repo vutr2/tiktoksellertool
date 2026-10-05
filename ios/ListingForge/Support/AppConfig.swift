@@ -11,7 +11,9 @@ import Foundation
 enum AppConfig {
     static var privacyPolicyURL: URL? { configuredURL("PRIVACY_POLICY_URL") }
     static var supportURL: URL? { configuredURL("SUPPORT_URL") }
-    static var termsURL: URL? { configuredURL("TERMS_URL") }
+    static var termsURL: URL? {
+        configuredURL("TERMS_URL") ?? URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+    }
 
     private static func configuredURL(_ key: String) -> URL? {
         guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String,

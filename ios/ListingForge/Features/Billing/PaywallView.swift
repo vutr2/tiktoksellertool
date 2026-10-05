@@ -17,6 +17,8 @@ struct PaywallView: View {
         var label: String { self == .monthly ? "Monthly" : "Annual" }
         var idFragment: String { self == .monthly ? "monthly" : "annual" }
         var suffix: String { self == .monthly ? "mo" : "yr" }
+        var priceUnit: String { self == .monthly ? "month" : "year" }
+        var planLength: String { self == .monthly ? "1 month" : "1 year" }
     }
 
     /// Display order and copy for each tier, from the design.
@@ -113,12 +115,19 @@ struct PaywallView: View {
                     .overlay(Circle().stroke(WorkflowStyle.border, lineWidth: 1))
                     .frame(width: 20, height: 20)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tier.name).font(.subheadline.weight(.semibold))
+                    Text("\(tier.name) \(period.label)")
+                        .font(.subheadline.weight(.semibold))
                     Text(tier.blurb).font(.caption2).foregroundStyle(.secondary)
+                    Text("Auto-renewable subscription · \(period.planLength)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(product?.displayPrice ?? "—").font(.subheadline.weight(.semibold))
+                    Text("per \(period.priceUnit)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     Text("\(tier.credits.formatted()) credits / month").font(.caption2).foregroundStyle(.secondary)
                 }
             }
@@ -201,7 +210,7 @@ struct PaywallView: View {
 
             HStack(spacing: 16) {
                 Button("Restore Purchases") { Task { await billing.restore() } }
-                if let url = AppConfig.termsURL { Link("Terms", destination: url) }
+                if let url = AppConfig.termsURL { Link("Terms of Use", destination: url) }
                 if let url = AppConfig.privacyPolicyURL { Link("Privacy", destination: url) }
             }
             .font(.caption)
@@ -218,19 +227,24 @@ struct PaywallView: View {
     private var ctaTitle: String {
         guard let product = selectedProduct else { return "Choose a plan" }
         if let trial = freeTrial(product) { return "Start \(trial) free trial" }
-        return "Subscribe · \(product.displayPrice) / \(period.suffix)"
+        return "Subscribe · \(product.displayPrice) / \(period.priceUnit)"
     }
 
     /// Compliance text (§3.1.2): auto-renew + trial-converts, always shown in-app.
     private var disclosure: String {
         var lines = ["Subscriptions renew automatically unless canceled at least 24 hours before the period ends. Manage or cancel in your Apple account settings."]
         if let product = selectedProduct, let trial = freeTrial(product) {
-            lines.insert("\(trial) free, then \(product.displayPrice) per \(period.suffix). A free trial that is not canceled converts to a paid subscription.", at: 0)
+            lines.insert("\(selectedSubscriptionTitle) is a \(period.planLength) subscription. \(trial) free, then \(product.displayPrice) per \(period.priceUnit). A free trial that is not canceled converts to a paid subscription.", at: 0)
         }
         else if let product = selectedProduct {
-            lines.insert("\(product.displayPrice) per \(period == .monthly ? "month" : "year").", at: 0)
+            lines.insert("\(selectedSubscriptionTitle) is a \(period.planLength) subscription at \(product.displayPrice) per \(period.priceUnit).", at: 0)
         }
         return lines.joined(separator: " ")
+    }
+
+    private var selectedSubscriptionTitle: String {
+        guard let selectedTier else { return "\(period.label) plan" }
+        return "\(selectedTier.name) \(period.label)"
     }
 
     private var annualSavings: Int? {
